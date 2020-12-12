@@ -1,5 +1,9 @@
 ﻿更新履歴
 
+20201026.41
+・旧配信のタイムシフトを録画できるようにするパッチ
+https://egg.5ch.net/test/read.cgi/software/1595715643/228
+
 20201008.40
 ・XMLコメントのname属性(出演者が名前付きのコメントする時に使用)を保存するように修正
 https://egg.5ch.net/test/read.cgi/software/1595715643/174
