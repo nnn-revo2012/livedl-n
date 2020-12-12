@@ -1,5 +1,25 @@
 ﻿更新履歴
 
+20200828.38
+ニコ生仕様変更に対応
+https://egg.5ch.net/test/read.cgi/software/1595715643/116
+
+・コメントサーバー仕様変更に対応(threadId、waybackkey廃止など)(2020/07/27)
+　ID:jM/9Q+5+0作成のpatchを適用
+https://egg.5ch.net/test/read.cgi/software/1570634489/932
+
+・'broadcastId not found'エラー表示されるのを修正(2020/06/25)
+　ID:jM/9Q+5+0作成のpatchを適用
+https://egg.5ch.net/test/read.cgi/software/1570634489/744
+
+・放送情報取得時のwsapiがv2に変わって録画できなくなったのを修正(2020/06/02)
+　ID:jM/9Q+5+0作成のpatchを適用
+http://egg.5ch.net/test/read.cgi/software/1570634489/535
+
+・20181215.35以降の修正を追加
+・TS録画時にセグメント抜けが起こるのを修正 (PR#47)
+・http -> httpsに修正 (PR#39)
+
 20181215.35
 ・-nico-ts-start-minオプションの追加
 ・win32bit版のビルドを追加
