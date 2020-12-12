@@ -1,5 +1,9 @@
 ﻿更新履歴
 
+20201115.42
+livedl で HTTP のタイムアウト時間を変更できるようにするパッチ
+https://egg.5ch.net/test/read.cgi/software/1595715643/272
+
 20201026.41
 ・旧配信のタイムシフトを録画できるようにするパッチ
 https://egg.5ch.net/test/read.cgi/software/1595715643/228
