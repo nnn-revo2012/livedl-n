@@ -1,5 +1,5 @@
 
 package buildno
 
-var BuildDate = "20201115"
-var BuildNo = "42"
+var BuildDate = "20201213"
+var BuildNo = "43"
