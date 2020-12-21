@@ -163,3 +163,10 @@ Patch applies only livedl.youtube-r1.patch
 [Copy the patch to the livedl folder]
 patch -p0 <livedl.youtube-r1.patch
 ```
+
+- Fix not to call getwaybackkey API  
+https://egg.5ch.net/test/read.cgi/software/1595715643/424  
+```
+[Copy the patch to the livedl folder]
+patch -p1 <livedl.waybackkey.patch
+```

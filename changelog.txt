@@ -1,5 +1,9 @@
 ﻿更新履歴
 
+20201221.44
+・livedl で waybackkey の取得方法を変更するパッチ
+https://egg.5ch.net/test/read.cgi/software/1595715643/424
+
 20201213.43
 ・livedl で YouTube Live を扱えるようにするためのパッチ（リビジョン1）
 patch は livedl.youtube-r1.patch のみ適用
