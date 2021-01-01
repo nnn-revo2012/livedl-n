@@ -1,5 +1,12 @@
 ﻿更新履歴
 
+20210102.45
+・livedl で一部コメントが保存されないのを修正するパッチ
+https://egg.5ch.net/test/read.cgi/software/1595715643/457
+
+・Remove VPOS > 0 (Commit 03417972d920cce0af92221583fc42bc559ef469)
+　（VPOS<0のコメントが抜けるため削除した）
+
 20201221.44
 ・livedl で waybackkey の取得方法を変更するパッチ
 https://egg.5ch.net/test/read.cgi/software/1595715643/424
