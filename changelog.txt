@@ -1,5 +1,18 @@
 ﻿更新履歴
 
+20210128.46
+・金額のフォーマットの要望ないみたいだからこっちで勝手に決めさせてもらったよ
+https://egg.5ch.net/test/read.cgi/software/1595715643/543
+
+Youtube Liveのコメントにamount属性を追加
+
+・livedl で YouTubeLive リプレイのコメントが取れるよう直したよ
+https://egg.5ch.net/test/read.cgi/software/1595715643/523
+
+Youtube Liveのコメントが途中で切れるのを修正
+Youtube liveのアーカイブダウンロード中に`json decode error'となり中断するのを修正
+(404エラーになる場合は少しwaitする)
+
 20210102.45
 ・livedl で一部コメントが保存されないのを修正するパッチ
 https://egg.5ch.net/test/read.cgi/software/1595715643/457

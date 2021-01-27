@@ -181,3 +181,17 @@ patch -p0 <livedl.comment-not-saved.patch
 - **NO PATCH** Remove VPOS > 0 (Commit [03417972d920cce0af92221583fc42bc559ef469](https://github.com/nnn-revo2012/livedl/commit/03417972d920cce0af92221583fc42bc559ef469))  
 See Commit [fa4a86b16f637c88791f78e12b33297162b540bd](https://github.com/nnn-revo2012/livedl/commit/fa4a86b16f637c88791f78e12b33297162b540bd)  
 
+- Fixed YouTube Live comments being cut off in the middle and 'json decode error'  
+https://egg.5ch.net/test/read.cgi/software/1595715643/523  
+```
+[Copy the patch to the livedl folder]
+patch -p0 <livedl.youtube-replay-chat.patch
+```
+
+- Added amount attribute to YouTube Live comment format  
+https://egg.5ch.net/test/read.cgi/software/1595715643/543  
+```
+[Copy the patch to the livedl folder]
+patch -p0 <livedl.youtube-superchat-amount.patch
+
+```
