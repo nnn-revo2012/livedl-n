@@ -84,21 +84,20 @@ http://egg.5ch.net/test/read.cgi/software/1570634489/535
 https://egg.5ch.net/test/read.cgi/software/1570634489/744  
 - Fixed comments cannot be saved on July 27, 2020  
 https://egg.5ch.net/test/read.cgi/software/1570634489/932  
-
-**These patches have been newly uploaded in one**  
-https://egg.5ch.net/test/read.cgi/software/1595715643/116  
+  **These patches have been newly uploaded in one**  
+  https://egg.5ch.net/test/read.cgi/software/1595715643/116  
 ```
 [Copy the patch to the livedl folder]
 patch -p1 <livedl-p20200919.01.patch
 ```
-The following error is displayed when applying the patch.  
+  The following error is displayed when applying the patch.  
 ```
 patching file src/niconico/nico_hls.go  
 Hunk #8 FAILED at 638.  
 1 out of 20 hunks FAILED -- saving rejects to file src/niconico/nico_hls.go.rej  
 ```
-Modify line 638 (or surroundings) of `src/niconico/nico_hls.go` with an editor as follows.  
-(Change **http** in the original line to **https**.)  
+  Modify line 638 (or surroundings) of `src/niconico/nico_hls.go` with an editor as follows.  
+  (Change **http** in the original line to **https**.)  
 ```
 uri := fmt.Sprintf("https://live.nicovideo.jp/api/getwaybackkey?thread=%s",url.QueryEscape(threadId))
 ```
@@ -119,8 +118,8 @@ patch -p1 <livedl.ts-start-stop.patch
 - Fixed to save the name attribute of XML comments (used when performers make named comments)  
 https://egg.5ch.net/test/read.cgi/software/1595715643/174  
 
-Patch applies only livedl.comment-name-attribute-r1.patch.gz  
-https://egg.5ch.net/test/read.cgi/software/1595715643/194  
+  Patch applies only livedl.comment-name-attribute-r1.patch.gz  
+  https://egg.5ch.net/test/read.cgi/software/1595715643/194  
 ```
 [Copy the patch to the livedl folder]
 patch -p0 <livedl.comment-name-attribute-r1.patch
@@ -141,14 +140,14 @@ https://egg.5ch.net/test/read.cgi/software/1595715643/272
 [Copy the patch to the livedl folder]
 patch -p0 <livedl.http-timeout.patch
 ```
-The following error is displayed when applying the patch.  
+  The following error is displayed when applying the patch.  
 ```
 $ patch -p0 <livedl.http-timeout.patch
 patching file src/options/options.go
 Hunk #2 FAILED at 63.
 ```
-Modify line 69 of `src/niconico/options.go` with an editor as follows.  
-(Add **HttpTimeout** in the original line.)  
+  Modify line 69 of `src/niconico/options.go` with an editor as follows.  
+  (Add **HttpTimeout** in the original line.)  
 ```
 	HttpProxy              string
 	NoChdir                bool
@@ -158,7 +157,7 @@ Modify line 69 of `src/niconico/options.go` with an editor as follows.
 - Fixed youtube live 'ytplayer parse error'.  
 https://egg.5ch.net/test/read.cgi/software/1595715643/402  
 https://egg.5ch.net/test/read.cgi/software/1595715643/406  
-Patch applies only livedl.youtube-r1.patch  
+  Patch applies only livedl.youtube-r1.patch  
 ```
 [Copy the patch to the livedl folder]
 patch -p0 <livedl.youtube-r1.patch
@@ -179,7 +178,7 @@ patch -p0 <livedl.comment-not-saved.patch
 ```
 
 - **NO PATCH** Remove VPOS > 0 (Commit [03417972d920cce0af92221583fc42bc559ef469](https://github.com/nnn-revo2012/livedl/commit/03417972d920cce0af92221583fc42bc559ef469))  
-See Commit [fa4a86b16f637c88791f78e12b33297162b540bd](https://github.com/nnn-revo2012/livedl/commit/fa4a86b16f637c88791f78e12b33297162b540bd)  
+  See Commit [fa4a86b16f637c88791f78e12b33297162b540bd](https://github.com/nnn-revo2012/livedl/commit/fa4a86b16f637c88791f78e12b33297162b540bd)  
 
 - Fixed YouTube Live comments being cut off in the middle and 'json decode error'  
 https://egg.5ch.net/test/read.cgi/software/1595715643/523  
@@ -193,5 +192,24 @@ https://egg.5ch.net/test/read.cgi/software/1595715643/543
 ```
 [Copy the patch to the livedl folder]
 patch -p0 <livedl.youtube-superchat-amount.patch
-
 ```
+
+-  Fix Youtube Live API (Change endpoint)  
+https://egg.5ch.net/test/read.cgi/software/1595715643/559  
+```
+[Copy the patch to the livedl folder]
+patch -p0 <livedl.youtube-client-2.20210128.02.00.patch
+```
+
+- Add does not quit program when saving only Youtube Live's comments  
+https://egg.5ch.net/test/read.cgi/software/1595715643/567  
+```
+[Copy the patch to the livedl folder]
+patch -p0 <livedl.youtube-comment-forever.patch
+```
+
+- Add docker support and -no-chdir patch  
+https://egg.5ch.net/test/read.cgi/software/1595715643/585  
+
+  **Already patched.** No need to patch `livedl.no-chdir.patch'  
+

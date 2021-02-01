@@ -1,5 +1,12 @@
 ﻿更新履歴
 
+20210202.47
+・livedl で-yt-no-streamlink=on -yt-no-youtube-dl=on が指定されたとき、YouTube Live のコメントを永久に取得し続けるパッチ
+https://egg.5ch.net/test/read.cgi/software/1595715643/567
+
+・livedl を YouTube Live の直近の仕様変更に対応
+https://egg.5ch.net/test/read.cgi/software/1595715643/559
+
 20210128.46
 ・金額のフォーマットの要望ないみたいだからこっちで勝手に決めさせてもらったよ
 https://egg.5ch.net/test/read.cgi/software/1595715643/543
