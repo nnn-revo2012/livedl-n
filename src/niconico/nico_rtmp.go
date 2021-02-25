@@ -10,11 +10,11 @@ import (
 	"sync"
 	"log"
 	"time"
-	"../rtmps"
-	"../amf"
-	"../options"
-	"../files"
-	"../httpbase"
+	"livedl/rtmps"
+	"livedl/amf"
+	"livedl/options"
+	"livedl/files"
+	"livedl/httpbase"
 )
 
 type Content struct {

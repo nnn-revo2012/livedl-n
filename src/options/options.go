@@ -12,10 +12,10 @@ import (
 	"strings"
 	"time"
 
-	"../buildno"
-	"../cryptoconf"
-	"../files"
-	"../httpbase"
+	"livedl/buildno"
+	"livedl/cryptoconf"
+	"livedl/files"
+	"livedl/httpbase"
 	"golang.org/x/crypto/sha3"
 )
 

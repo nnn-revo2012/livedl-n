@@ -13,9 +13,9 @@ import (
 	"strconv"
 	"encoding/json"
 	"github.com/gorilla/websocket"
-	"../options"
-	"../files"
-	"../objs"
+	"livedl/options"
+	"livedl/files"
+	"livedl/objs"
 	"os/signal"
 	"sync"
 	"strings"
@@ -28,11 +28,11 @@ import (
 	"golang.org/x/crypto/sha3"
 
 	_ "net/http/pprof"
-	"../httpbase"
+	"livedl/httpbase"
 	"github.com/gin-gonic/gin"
 	"context"
 	"math"
-	"../gorman"
+	"livedl/gorman"
 )
 
 type OBJ = map[string]interface{}
