@@ -4,7 +4,30 @@ Niconico live recording tool that supports new distribution (HTML5).
 
 ## How to build a program  
 
-See https://github.com/himananiito/livedl or other forked repositories (e.g. https://github.com/hanaonnao/livedl)  
+See https://github.com/himananiito/livedl or other forked repositories (e.g. https://github.com/glloyd0314/livedl)  
+
+### **golang 1.16**  
+If you use **golang 1.16 or higher**, set the environment variable **`GO111MODULE = off`** before `go get` and `go build`.  
+Otherwise you will get an error at compile.  
+Or use golang 1.15.8.  
+
+go get:  
+```
+export GO111MODULE=off
+go get github.com/gorilla/websocket
+go get golang.org/x/crypto/sha3
+go get github.com/mattn/go-sqlite3
+go get github.com/gin-gonic/gin
+```  
+go build:  
+```
+GO111MODULE=off go build src/livedl.go
+```  
+Or  
+```
+export GO111MODULE=off
+go build src/livedl.go
+``` 
 
 ## Get the latest livedl source program  (**RECOMMEND**)  
 
