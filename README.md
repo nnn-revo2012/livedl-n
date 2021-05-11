@@ -6,10 +6,11 @@ Niconico live recording tool that supports new distribution (HTML5).
 
 See https://github.com/himananiito/livedl or other forked repositories (e.g. https://github.com/glloyd0314/livedl)  
 
+## This version is in GOPATH mode.   
 ### **golang 1.16**  
-If you use **golang 1.16 or higher**, set the environment variable **`GO111MODULE = off`** before `go get` and `go build`.  
+If you use **golang 1.16 or higher**, set the environment variable **`GO111MODULE=off`** before `go get` and `go build`.  
 Otherwise you will get an error at compile.  
-Or use golang 1.15.8.  
+Or use golang 1.15.x.  
 
 go get:  
 ```
@@ -59,6 +60,7 @@ Merge the pull requests on himananiito/livedl, merge the following.
 git clone https://github.com/himananiito/livedl.git
 cd livedl
 git checkout master
+git reset --hard a2c52e112136ee373e4eb28e2aad224348e6d99c
 git fetch origin pull/39/head:dev
 git checkout dev
 git reset --hard HEAD^
