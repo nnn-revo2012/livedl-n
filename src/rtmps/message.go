@@ -8,7 +8,7 @@ import (
 	"io"
 
 	"fmt"
-	"../amf"
+	"livedl/amf"
 )
 
 const (

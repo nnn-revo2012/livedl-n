@@ -5,14 +5,14 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"./options"
-	"./twitcas"
-	"./niconico"
-	"./youtube"
-	"./zip2mp4"
+	"livedl/options"
+	"livedl/twitcas"
+	"livedl/niconico"
+	"livedl/youtube"
+	"livedl/zip2mp4"
 	"time"
 	"strings"
-	"./httpbase"
+	"livedl/httpbase"
 )
 
 func main() {

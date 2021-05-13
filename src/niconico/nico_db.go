@@ -9,7 +9,7 @@ import (
 	"database/sql"
 
 	"path/filepath"
-	"../files"
+	"livedl/files"
 )
 
 var SelMedia = `SELECT
