@@ -22,7 +22,7 @@ import (
 
 type OBJ = map[string]interface{}
 
-func getComment(gm *gorman.GoroutineManager, ctx context.Context, sig <-chan struct{}, isReplay bool, continuation, name string) (done bool) {
+func getComment(gm *gorman.GoroutineManager, ctx context.Context, sig <-chan struct{}, isReplay bool, commentStart float64, continuation, name string) (done bool) {
 
 	dbName := files.ChangeExtention(name, "yt.sqlite3")
 	db, err := dbOpen(ctx, dbName)
@@ -35,11 +35,13 @@ func getComment(gm *gorman.GoroutineManager, ctx context.Context, sig <-chan str
 	mtx := &sync.Mutex{}
 
 	testContinuation, count, _ := dbGetContinuation(ctx, db, mtx)
-	if testContinuation != "" {
+	if commentStart < 0.5 && testContinuation != "" {
 		continuation = testContinuation
 	}
 
 	var printTime int64
+
+	var isFirst bool = true
 
 	MAINLOOP: for {
 		select {
@@ -63,6 +65,11 @@ func getComment(gm *gorman.GoroutineManager, ctx context.Context, sig <-chan str
 					},
 				},
 				"continuation": continuation,
+			}
+			if !isFirst && isReplay && commentStart > 1.5 {
+				postData["currentPlayerState"] = OBJ{
+					"playerOffsetMs": commentStart * 1000.0,
+				}
 			}
 			resp, err, neterr := httpbase.PostJson(uri, map[string]string {
 				"Cookie": Cookie,
@@ -104,7 +111,9 @@ func getComment(gm *gorman.GoroutineManager, ctx context.Context, sig <-chan str
 				return
 			}
 
-			if actions, ok := objs.FindArray(liveChatContinuation, "actions"); ok {
+			if isFirst && isReplay && commentStart > 1.5 {
+				isFirst = false
+			} else if actions, ok := objs.FindArray(liveChatContinuation, "actions"); ok {
 				var videoOffsetTimeMsec string
 
 				for _, a := range actions {
