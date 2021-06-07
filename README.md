@@ -235,3 +235,24 @@ https://egg.5ch.net/test/read.cgi/software/1595715643/585
 
   **Already patched.** No need to patch `livedl.no-chdir.patch'  
 
+- Add the option: chat start time of the archive comment of YouTube Live.  
+https://egg.5ch.net/test/read.cgi/software/1595715643/789  
+
+  Edit livedl.yt-comment-start.patch for your editor.  
+  Delete from line22 to line67.  
+```
+22: @@ -385,6 +386,45 @@
+23: 	return
+24: }
+       .
+       .
+       .
+65: func ParseArgs() (opt Option) {
+66: 	//dbAccountOpen()
+67: 	db, err := dbOpen()
+```
+
+```
+[Copy the patch to the livedl folder]
+patch -p1 <livedl.yt-comment-start.patch
+```
