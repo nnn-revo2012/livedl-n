@@ -256,3 +256,11 @@ https://egg.5ch.net/test/read.cgi/software/1595715643/789
 [Copy the patch to the livedl folder]
 patch -p1 <livedl.yt-comment-start.patch
 ```
+
+- Fix conf.db being created in the current directory when executing from a directory other than the one with livedl  
+https://egg.5ch.net/test/read.cgi/software/1595715643/922  
+```
+[Copy the patch to the livedl folder]
+patch -p1 <livedl.fix-no-chdir.patch
+```
+
