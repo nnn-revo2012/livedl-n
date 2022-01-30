@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"livedl/options"
+	"github.com/nnn-revo2012/livedl/options"
 	"io/ioutil"
 	"regexp"
 	"strconv"
@@ -18,7 +18,7 @@ import (
 	"syscall"
 	"runtime"
 	_ "net/http/pprof"
-	"livedl/httpbase"
+	"github.com/nnn-revo2012/livedl/httpbase"
 )
 
 func NicoLogin(opt options.Option) (err error) {

@@ -3,8 +3,8 @@ package amf
 import (
 	"bytes"
 	"io"
-	"livedl/amf/amf0"
-	"livedl/amf/amf_t"
+	"github.com/nnn-revo2012/livedl/amf/amf0"
+	"github.com/nnn-revo2012/livedl/amf/amf_t"
 )
 
 func SwitchToAmf3() amf_t.SwitchToAmf3 {

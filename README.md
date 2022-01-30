@@ -6,6 +6,25 @@ Niconico live recording tool that supports new distribution (HTML5).
 
 See https://github.com/himananiito/livedl  
 
+**go build(Linux and Mac):**  
+```
+$ cd src; go build -o ../livedl livedl.go; cd ..
+```  
+
+**go build(Windows):**  
+```
+> cd src
+> go build -o ../livedl.exe livedl.go
+> cd ..
+```  
+
+**go build(Windows and use powershell):**  
+
+```
+> ./build.ps1
+
+```  
+
 ## This version is in module-aware mode.   
 See [Migrating to Go Modules](https://blog.golang.org/migrating-to-go-modules)  
 ### **golang 1.15.x or lower**  
@@ -16,14 +35,14 @@ Or use golang 1.16.x or higher.
 go build:  
 ```
 cd src
-GO111MODULE=on go build livedl.go
+GO111MODULE=on go build -o ../livedl livedl.go
 cd ..
 ```  
 Or  
 ```
 export GO111MODULE=on
 cd src
-go build livedl.go
+go build -o ../livedl livedl.go
 cd ..
 ``` 
 

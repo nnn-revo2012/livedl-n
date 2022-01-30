@@ -8,7 +8,7 @@ import (
 	"io"
 
 	"fmt"
-	"livedl/amf"
+	"github.com/nnn-revo2012/livedl/amf"
 )
 
 const (

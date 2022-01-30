@@ -9,7 +9,7 @@ import (
 	"database/sql"
 
 	"path/filepath"
-	"livedl/files"
+	"github.com/nnn-revo2012/livedl/files"
 )
 
 var SelMedia = `SELECT

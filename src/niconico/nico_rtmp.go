@@ -10,11 +10,11 @@ import (
 	"sync"
 	"log"
 	"time"
-	"livedl/rtmps"
-	"livedl/amf"
-	"livedl/options"
-	"livedl/files"
-	"livedl/httpbase"
+	"github.com/nnn-revo2012/livedl/rtmps"
+	"github.com/nnn-revo2012/livedl/amf"
+	"github.com/nnn-revo2012/livedl/options"
+	"github.com/nnn-revo2012/livedl/files"
+	"github.com/nnn-revo2012/livedl/httpbase"
 )
 
 type Content struct {

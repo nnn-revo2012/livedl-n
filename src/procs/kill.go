@@ -5,7 +5,7 @@ import (
 	"runtime"
 	"log"
 
-	"livedl/procs/base"
+	"github.com/nnn-revo2012/livedl/procs/base"
 )
 
 func Kill(pid int) {

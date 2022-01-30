@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os/exec"
-	"livedl/procs/base"
+	"github.com/nnn-revo2012/livedl/procs/base"
 )
 
 var cmdList = []string{

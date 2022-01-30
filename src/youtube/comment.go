@@ -14,10 +14,10 @@ import (
 	"os"
 	"html"
 	"io/ioutil"
-	"livedl/gorman"
-	"livedl/files"
-	"livedl/httpbase"
-	"livedl/objs"
+	"github.com/nnn-revo2012/livedl/gorman"
+	"github.com/nnn-revo2012/livedl/files"
+	"github.com/nnn-revo2012/livedl/httpbase"
+	"github.com/nnn-revo2012/livedl/objs"
 )
 
 type OBJ = map[string]interface{}

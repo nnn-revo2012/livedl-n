@@ -13,9 +13,9 @@ import (
 	"strconv"
 	"encoding/json"
 	"github.com/gorilla/websocket"
-	"livedl/options"
-	"livedl/files"
-	"livedl/objs"
+	"github.com/nnn-revo2012/livedl/options"
+	"github.com/nnn-revo2012/livedl/files"
+	"github.com/nnn-revo2012/livedl/objs"
 	"os/signal"
 	"sync"
 	"strings"
@@ -28,11 +28,11 @@ import (
 	"golang.org/x/crypto/sha3"
 
 	_ "net/http/pprof"
-	"livedl/httpbase"
+	"github.com/nnn-revo2012/livedl/httpbase"
 	"github.com/gin-gonic/gin"
 	"context"
 	"math"
-	"livedl/gorman"
+	"github.com/nnn-revo2012/livedl/gorman"
 )
 
 type OBJ = map[string]interface{}

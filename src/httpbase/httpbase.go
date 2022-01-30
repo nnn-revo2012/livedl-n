@@ -16,8 +16,8 @@ import (
 	"encoding/pem"
 	"bytes"
 
-	"livedl/buildno"
-	"livedl/defines"
+	"github.com/nnn-revo2012/livedl/buildno"
+	"github.com/nnn-revo2012/livedl/defines"
 )
 
 func GetUserAgent() string {

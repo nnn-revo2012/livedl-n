@@ -9,10 +9,10 @@ import (
 	"io"
 	"io/ioutil"
 	"regexp"
-	"livedl/amf"
-	"livedl/flvs"
-	"livedl/objs"
-	"livedl/files"
+	"github.com/nnn-revo2012/livedl/amf"
+	"github.com/nnn-revo2012/livedl/flvs"
+	"github.com/nnn-revo2012/livedl/objs"
+	"github.com/nnn-revo2012/livedl/files"
 )
 
 type DecodeError struct {

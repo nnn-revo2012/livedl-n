@@ -7,8 +7,8 @@ import (
 	"math"
 	"fmt"
 	"log"
-	"livedl/amf/amf3"
-	"livedl/amf/amf_t"
+	"github.com/nnn-revo2012/livedl/amf/amf3"
+	"github.com/nnn-revo2012/livedl/amf/amf_t"
 )
 
 func encodeNumber(num float64, buff *bytes.Buffer) (err error) {
