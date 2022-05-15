@@ -186,7 +186,7 @@ HTTP関連
 
 FILE:
   ニコニコ生放送/nicolive:
-    https://live2.nicovideo.jp/watch/lvXXXXXXXXX
+    https://live.nicovideo.jp/watch/lvXXXXXXXXX
     lvXXXXXXXXX
   ツイキャス/twitcasting:
     https://twitcasting.tv/XXXXX
