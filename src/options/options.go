@@ -1150,10 +1150,10 @@ func ParseArgs() (opt Option) {
 				opt.NicoAdjustVpos = true
 				dbConfSet(db, "NicoAdjustVpos", opt.NicoAdjustVpos)
 			} else if strings.EqualFold(match[1], "off") {
-				opt.HttpSkipVerify = false
+				opt.NicoAdjustVpos = false
 				dbConfSet(db, "NicoAdjustVpos", opt.NicoAdjustVpos)
 			} else {
-				opt.NicoAdjustVpos = true
+				opt.NicoAdjustVpos = false
 			}
 
 			return

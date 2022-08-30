@@ -8,7 +8,6 @@ import (
 	"strings"
 	"database/sql"
 
-	"path/filepath"
 	"github.com/nnn-revo2012/livedl/files"
 )
 
@@ -332,15 +331,20 @@ func WriteComment(db *sql.DB, fileName string, skipHb, adjustVpos bool, seqnoSta
 	if adjustVpos == true {
 		var t float64
 		var sts string
-		db.QueryRow(`SELECT v FROM kvs WHERE k = 'providerType'`).Scan(&sts)
-		if sts == "ENDED" {
-			offset = seqnoStart * 500
-		} else {
-			offset = seqnoStart * 150
-		}
-		db.QueryRow(`SELECT v FROM kvs WHERE k = 'providerType'`).Scan(&providerType)
+		var serverTime int64
+		db.QueryRow(`SELECT v FROM kvs WHERE k = 'serverTime'`).Scan(&t)
+		serverTime = int64(t)
 		db.QueryRow(`SELECT v FROM kvs WHERE k = 'openTime'`).Scan(&t)
 		openTime = int64(t)
+		db.QueryRow(`SELECT v FROM kvs WHERE k = 'status'`).Scan(&sts)
+		if sts == "ENDED" {
+			offset = seqnoStart * 500 //timeshift
+		} else {
+			offset = (serverTime/10) - (openTime*100)
+		}
+		db.QueryRow(`SELECT v FROM kvs WHERE k = 'providerType'`).Scan(&providerType)
+		fmt.Println("serverTime: ", serverTime)
+		fmt.Println("status: ", sts)
 	}
 
 	fmt.Println("adjustVpos: ", adjustVpos)
@@ -356,15 +360,12 @@ func WriteComment(db *sql.DB, fileName string, skipHb, adjustVpos bool, seqnoSta
 	defer rows.Close()
 
 	fileName = files.ChangeExtention(fileName, "xml")
-
-	dir := filepath.Dir(fileName)
-	base := filepath.Base(fileName)
-	base, err = files.GetFileNameNext(base)
+	fileName, err = files.GetFileNameNext(fileName)
+	fmt.Println("xml file: ", fileName)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-	fileName = filepath.Join(dir, base)
 	f, err := os.Create(fileName)
 	if err != nil {
 		log.Fatalln(err)
