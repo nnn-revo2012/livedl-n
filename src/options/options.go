@@ -65,6 +65,7 @@ type Option struct {
 	YtCommentStart         float64
 	YtNoYoutubeDl          bool
 	NicoSkipHb             bool // コメント出力時に/hbコマンドを出さない
+	NicoAdjustVpos         bool // コメント出力時にvposを補正する
 	HttpRootCA             string
 	HttpSkipVerify         bool
 	HttpProxy              string
@@ -142,6 +143,9 @@ COMMAND:
   -nico-force-reservation=off    (+) 自動的にタイムシフト予約しない(デフォルト)
   -nico-skip-hb=on               (+) コメント書き出し時に/hbコマンドを出さない
   -nico-skip-hb=off              (+) コメント書き出し時に/hbコマンドも出す(デフォルト)
+  -nico-adjust-vpos=on           (+) コメント書き出し時にvposの値を補正する
+                                 vposの値が-1000より小さい場合はコメント出力しない
+  -nico-adjust-vpos=off          (+) コメント書き出し時にvposの値をそのまま出力する(デフォルト)
   -nico-ts-start <num>           タイムシフトの録画を指定した再生時間（秒）から開始する
   -nico-ts-stop <num>            タイムシフトの録画を指定した再生時間（秒）で停止する
                                  上記2つは ＜分＞:＜秒＞ | ＜時＞:＜分＞:＜秒＞ の形式でも指定可能
@@ -485,6 +489,7 @@ func ParseArgs() (opt Option) {
 		IFNULL((SELECT v FROM conf WHERE k == "YtNoStreamlink"), 0),
 		IFNULL((SELECT v FROM conf WHERE k == "YtNoYoutubeDl"), 0),
 		IFNULL((SELECT v FROM conf WHERE k == "NicoSkipHb"), 0),
+		IFNULL((SELECT v FROM conf WHERE k == "NicoAdjustVpos"), 0),
 		IFNULL((SELECT v FROM conf WHERE k == "HttpSkipVerify"), 0),
 		IFNULL((SELECT v FROM conf WHERE k == "HttpTimeout"), 0);
 	`).Scan(
@@ -507,6 +512,7 @@ func ParseArgs() (opt Option) {
 		&opt.YtNoStreamlink,
 		&opt.YtNoYoutubeDl,
 		&opt.NicoSkipHb,
+		&opt.NicoAdjustVpos,
 		&opt.HttpSkipVerify,
 		&opt.HttpTimeout,
 	)
@@ -1139,6 +1145,19 @@ func ParseArgs() (opt Option) {
 			dbConfSet(db, "HttpTimeout", opt.HttpTimeout)
 			return nil
 		}},
+		Parser{regexp.MustCompile(`\A(?i)--?nico-?adjust-?vpos(?:=(on|off))?\z`), func() (err error) {
+			if strings.EqualFold(match[1], "on") {
+				opt.NicoAdjustVpos = true
+				dbConfSet(db, "NicoAdjustVpos", opt.NicoAdjustVpos)
+			} else if strings.EqualFold(match[1], "off") {
+				opt.HttpSkipVerify = false
+				dbConfSet(db, "NicoAdjustVpos", opt.NicoAdjustVpos)
+			} else {
+				opt.NicoAdjustVpos = true
+			}
+
+			return
+		}},
 	}
 
 	checkFILE := func(arg string) bool {
@@ -1266,6 +1285,7 @@ LB_ARG:
 		}
 		fmt.Printf("Conf(NicoForceResv): %#v\n", opt.NicoForceResv)
 		fmt.Printf("Conf(NicoSkipHb): %#v\n", opt.NicoSkipHb)
+		fmt.Printf("Conf(NicoAdjustVpos): %#v\n", opt.NicoAdjustVpos)
 
 	case "YOUTUBE":
 		fmt.Printf("Conf(YtNoStreamlink): %#v\n", opt.YtNoStreamlink)
@@ -1279,6 +1299,8 @@ LB_ARG:
 		fmt.Printf("Conf(ExtractChunks): %#v\n", opt.ExtractChunks)
 		fmt.Printf("Conf(NicoConvForceConcat): %#v\n", opt.NicoConvForceConcat)
 		fmt.Printf("Conf(ConvExt): %#v\n", opt.ConvExt)
+		fmt.Printf("Conf(NicoSkipHb): %#v\n", opt.NicoSkipHb)
+		fmt.Printf("Conf(NicoAdjustVpos): %#v\n", opt.NicoAdjustVpos)
 	case "DB2HLS":
 		fmt.Printf("Conf(NicoHlsPort): %#v\n", opt.NicoHlsPort)
 		fmt.Printf("Conf(NicoConvSeqnoStart): %#v\n", opt.NicoConvSeqnoStart)

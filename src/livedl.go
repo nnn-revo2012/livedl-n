@@ -159,7 +159,7 @@ func main() {
 			os.Exit(1)
 		}
 		if hlsPlaylistEnd && opt.NicoAutoConvert {
-			done, nMp4s, skipped, err := zip2mp4.ConvertDB(dbname, opt.ConvExt, opt.NicoSkipHb, opt.NicoConvForceConcat, opt.NicoConvSeqnoStart, opt.NicoConvSeqnoEnd)
+			done, nMp4s, skipped, err := zip2mp4.ConvertDB(dbname, opt.ConvExt, opt.NicoSkipHb, opt.NicoAdjustVpos, opt.NicoConvForceConcat, opt.NicoConvSeqnoStart, opt.NicoConvSeqnoEnd)
 			if err != nil {
 				fmt.Println(err)
 				os.Exit(1)
@@ -193,13 +193,13 @@ func main() {
 			zip2mp4.YtComment(opt.DBFile)
 
 		} else if opt.ExtractChunks {
-			if _, err := zip2mp4.ExtractChunks(opt.DBFile, opt.NicoSkipHb); err != nil {
+			if _, err := zip2mp4.ExtractChunks(opt.DBFile, opt.NicoSkipHb, opt.NicoAdjustVpos, opt.NicoConvSeqnoStart, opt.NicoConvSeqnoEnd); err != nil {
 				fmt.Println(err)
 				os.Exit(1)
 			}
 
 		} else {
-			if _, _, _, err := zip2mp4.ConvertDB(opt.DBFile, opt.ConvExt, opt.NicoSkipHb, opt.NicoConvForceConcat, opt.NicoConvSeqnoStart, opt.NicoConvSeqnoEnd); err != nil {
+			if _, _, _, err := zip2mp4.ConvertDB(opt.DBFile, opt.ConvExt, opt.NicoSkipHb, opt.NicoAdjustVpos, opt.NicoConvForceConcat, opt.NicoConvSeqnoStart, opt.NicoConvSeqnoEnd); err != nil {
 				fmt.Println(err)
 				os.Exit(1)
 			}
