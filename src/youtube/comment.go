@@ -393,7 +393,7 @@ var SelComment = `SELECT
 	ORDER BY timestampUsec
 `
 
-func WriteComment(db *sql.DB, fileName string) {
+func WriteComment(db *sql.DB, fileName string, emoji bool) {
 
 	regexp1 := regexp.MustCompile(":[a-zA-Z0-9\\-\\_]*:")
 
@@ -467,7 +467,9 @@ func WriteComment(db *sql.DB, fileName string) {
 		)
 
 		line += ">"
-		message = regexp1.ReplaceAllString(message, "")
+		if emoji == false {
+			message = regexp1.ReplaceAllString(message, "")
+		}
 		if len(message) <= 0 {
 			message = "　"
 		}
