@@ -33,4 +33,5 @@
 *.sqlite3-wal
 
 !changelog.txt
+!README.txt
 
