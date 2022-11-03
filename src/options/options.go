@@ -35,6 +35,7 @@ type Option struct {
 	NicoRtmpIndex          map[int]bool
 	NicoHlsOnly            bool
 	NicoLoginOnly          bool
+	NicoCookies            string
 	NicoTestTimeout        int
 	TcasId                 string
 	TcasRetry              bool
@@ -117,9 +118,14 @@ COMMAND:
 
 ニコニコ生放送録画用オプション:
   -nico-login <id>,<password>    (+) ニコニコのIDとパスワードを指定する
+                                 2段階認証(MFA)に対応しています
   -nico-session <session>        Cookie[user_session]を指定する
   -nico-login-only=on            (+) 必ずログイン状態で録画する
   -nico-login-only=off           (+) 非ログインでも録画可能とする(デフォルト)
+  -nico-cookies firefox[:profile|cookiefile]
+                                 firefoxのcookieを使用する(デフォルトはdefault-release)
+                                 profileまたはcookiefileを直接指定も可能
+                                 スペースが入る場合はquoteで囲む
   -nico-hls-only                 録画時にHLSのみを試す
   -nico-hls-only=on              (+) 上記を有効に設定
   -nico-hls-only=off             (+) 上記を無効に設定(デフォルト)
@@ -260,6 +266,7 @@ func SetNicoLogin(hash, user, pass string) (err error) {
 	fmt.Printf("niconico account saved.\n")
 	return
 }
+
 func SetNicoSession(hash, session string) (err error) {
 	db, err := dbAccountOpen()
 	if err != nil {
@@ -419,6 +426,17 @@ func dbOpen() (db *sql.DB, err error) {
 	`)
 	if err != nil {
 		return
+	}
+	return
+}
+
+func GetBrowserName(str string) (name string) {
+	name = "error"
+	if len(str) <= 0 {
+		return
+	}
+	if m := regexp.MustCompile(`^(firefox:?['\"]?.*['\"]?)`).FindStringSubmatch(str); len(m) > 0 {
+		name = m[1]
 	}
 	return
 }
@@ -903,6 +921,19 @@ func ParseArgs() (opt Option) {
 
 			} else {
 				return fmt.Errorf("--nico-login: <id>,<password>")
+			}
+			return
+		}},
+		Parser{regexp.MustCompile(`\A(?i)--?nico-?cookies?\z`), func() (err error) {
+			str, err := nextArg()
+			if err != nil {
+				return
+			}
+			str = GetBrowserName(str)
+			if str != "error" {
+				opt.NicoCookies = str
+			} else {
+				return fmt.Errorf("--nico-cookies: invalid browser name")
 			}
 			return
 		}},
