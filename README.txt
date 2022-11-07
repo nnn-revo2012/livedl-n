@@ -1,4 +1,4 @@
-livedl (20220905.50-windows-amd64)
+livedl (20221108.51-windows-amd64)
 Usage:
 livedl [COMMAND] options... [--] FILE
 
@@ -20,9 +20,14 @@ COMMAND:
 
 ニコニコ生放送録画用オプション:
   -nico-login <id>,<password>    (+) ニコニコのIDとパスワードを指定する
+                                 2段階認証(MFA)に対応しています
   -nico-session <session>        Cookie[user_session]を指定する
   -nico-login-only=on            (+) 必ずログイン状態で録画する
   -nico-login-only=off           (+) 非ログインでも録画可能とする(デフォルト)
+  -nico-cookies firefox[:profile|cookiefile]
+                                 firefoxのcookieを使用する(デフォルトはdefault-release)
+                                 profileまたはcookiefileを直接指定も可能
+                                 スペースが入る場合はquoteで囲む
   -nico-hls-only                 録画時にHLSのみを試す
   -nico-hls-only=on              (+) 上記を有効に設定
   -nico-hls-only=off             (+) 上記を無効に設定(デフォルト)
@@ -104,6 +109,22 @@ FILE:
 
 
 ﻿更新履歴
+20221108.51
+・直接ログインの２段階認証(MFA)対応
+・上記に伴うlogin APIのendpoint、cookie取得方法の変更
+・firefoxからのcookie取得機能追加
+  -nico-cookies firefox[:profile|cookiefile]
+  e.g.  
+  - profile default-release のcookieを取得
+      ./livedl -nico-cookies firefox
+  - profile NicoTaro のcookieを取得
+      ./livedl -nico-cookies firefox:NicoTaro 
+  - 直接cookiefileを指定
+      ./livedl -nico-cookies firefox:'C:/Users/*******/AppData/Roaming/Mozilla/Firefox/Profiles/*****/cookies.sqlite' 
+※Mac/Linuxで `cookies from browser failed: firefox profiles not found`が 表示される場合は報告おねがいします   
+※直接cookiefile指定の場合は必ず'か"で囲ってください  
+※プロファイルにspaceを含む場合は'か"で囲ってください  
+
 20220905.50
 ・ニコ生のコメントのvposを補正
   -nico-adjust-vpos=on
