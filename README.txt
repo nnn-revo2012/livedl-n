@@ -7,6 +7,8 @@ COMMAND:
   -tcas    ツイキャスの録画
   -yt      YouTube Liveの録画
   -d2m     録画済みのdb(.sqlite3)をmp4に変換する(-db-to-mp4)
+  -dbinfo  録画済みのdb(.sqlite3)の各種情報を表示する
+           e.g. $ livedl -dbinfo -- 'C:/home/hogehoge/livedl/rec/lvxxxxxxxx.sqlite3'
   -d2h     [実験的] 録画済みのdb(.sqlite3)を視聴するためのHLSサーバを立てる(-db-to-hls)
            開始シーケンス番号は（変換ではないが） -nico-conv-seqno-start で指定
            使用例：$ livedl lvXXXXXXXXX.sqlite3 -d2h -nico-hls-port 12345 -nico-conv-seqno-start 2780
@@ -109,6 +111,13 @@ FILE:
 
 
 ﻿更新履歴
+202xxxxx.52
+・録画済みのデータベース(sqlite3)の各種情報を表示するコマンド(-dbinfo)追加
+    ./livedl -dbinfo -- 'データーベースのファイル名をフルパスで'
+  - youtubeのデーターベースはcomment情報のみ表示
+  - データベース情報表示、データベースextractの際DBをreadonlyで開くように修正
+  - データベースファイルの存在チェックを追加
+
 20221108.51
 ・直接ログインの２段階認証(MFA)対応
 ・上記に伴うlogin APIのendpoint、cookie取得方法の変更

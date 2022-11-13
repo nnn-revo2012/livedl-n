@@ -441,7 +441,12 @@ func Convert(fileName string) (err error) {
 }
 
 func ExtractChunks(fileName string, skipHb, adjustVpos bool, seqnoStart, seqnoEnd int64) (done bool, err error) {
-	db, err := sql.Open("sqlite3", fileName)
+	_, err = os.Stat(fileName)
+	if err != nil {
+		fmt.Println("sqlite3 file not found:")
+		return
+	}
+	db, err := sql.Open("sqlite3", "file:"+fileName+"?mode=ro&immutable=1")
 	if err != nil {
 		return
 	}
@@ -511,7 +516,12 @@ func ExtractChunks(fileName string, skipHb, adjustVpos bool, seqnoStart, seqnoEn
 }
 
 func ConvertDB(fileName, ext string, skipHb, adjustVpos, forceConcat bool, seqnoStart, seqnoEnd int64) (done bool, nMp4s int, skipped bool, err error) {
-	db, err := sql.Open("sqlite3", fileName)
+	_, err = os.Stat(fileName)
+	if err != nil {
+		fmt.Println("sqlite3 file not found:")
+		return
+	}
+	db, err := sql.Open("sqlite3", "file:"+fileName+"?mode=ro&immutable=1")
 	if err != nil {
 		return
 	}
@@ -600,6 +610,11 @@ func ConvertDB(fileName, ext string, skipHb, adjustVpos, forceConcat bool, seqno
 }
 
 func ReplayDB(fileName string, hlsPort int, seqnoStart int64) (err error) {
+	_, err = os.Stat(fileName)
+	if err != nil {
+		fmt.Println("sqlite3 file not found:")
+		return
+	}
 	db, err := sql.Open("sqlite3", fileName)
 	if err != nil {
 		return
@@ -743,7 +758,12 @@ func ReplayDB(fileName string, hlsPort int, seqnoStart int64) (err error) {
 }
 
 func YtComment(fileName string, ytemoji bool) (done bool, err error) {
-	db, err := sql.Open("sqlite3", fileName)
+	_, err = os.Stat(fileName)
+	if err != nil {
+		fmt.Println("sqlite3 file not found:")
+		return
+	}
+	db, err := sql.Open("sqlite3", "file:"+fileName+"?mode=ro&immutable=1")
 	if err != nil {
 		return
 	}
