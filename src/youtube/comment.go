@@ -74,7 +74,7 @@ func getComment(gm *gorman.GoroutineManager, ctx context.Context, sig <-chan str
 			resp, err, neterr := httpbase.PostJson(uri, map[string]string {
 				"Cookie": Cookie,
 				"User-Agent": UserAgent,
-			}, postData)
+			}, nil, postData)
 			if err != nil {
 				return
 			}

@@ -10,7 +10,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/nnn-revo2012/livedl/buildno"
 	"github.com/nnn-revo2012/livedl/cryptoconf"
@@ -1226,7 +1225,7 @@ LB_ARG:
 	if opt.HttpTimeout == 0 {
 		opt.HttpTimeout = MinimumHttpTimeout
 	}
-	httpbase.Client.Timeout = time.Duration(opt.HttpTimeout) * time.Second
+	httpbase.SetTimeout(opt.HttpTimeout)
 
 	// [deprecated]
 	// load session info

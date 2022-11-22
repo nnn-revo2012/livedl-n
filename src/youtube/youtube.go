@@ -306,7 +306,7 @@ func Record(id string, ytNoStreamlink, ytNoYoutube_dl bool, ytCommentStart float
 	code, buff, err, neterr := httpbase.GetBytes(uri, map[string]string {
 		"Cookie": Cookie,
 		"User-Agent": UserAgent,
-	})
+	}, nil)
 	if err != nil {
 		return
 	}
