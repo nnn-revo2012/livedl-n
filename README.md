@@ -56,7 +56,7 @@ go build:
 
   - Get a livedl source
     ```
-    git clone https://github.com/nnn_revo2012/livedl.git
+    git clone https://github.com/nnn-revo2012/livedl.git
     cd livedl
     git checkout master # Or another version that supports docker (contains Dockerfile)
     ```
