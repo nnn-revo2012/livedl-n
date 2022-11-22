@@ -1,4 +1,4 @@
-livedl (20221122.521-windows-amd64)
+livedl (20221122.52-windows-amd64)
 Usage:
 livedl [COMMAND] options... [--] FILE
 
@@ -30,14 +30,6 @@ COMMAND:
                                  firefoxのcookieを使用する(デフォルトはdefault-release)
                                  profileまたはcookiefileを直接指定も可能
                                  スペースが入る場合はquoteで囲む
-  -nico-hls-only                 録画時にHLSのみを試す
-  -nico-hls-only=on              (+) 上記を有効に設定
-  -nico-hls-only=off             (+) 上記を無効に設定(デフォルト)
-  -nico-rtmp-only                録画時にRTMPのみを試す
-  -nico-rtmp-only=on             (+) 上記を有効に設定
-  -nico-rtmp-only=off            (+) 上記を無効に設定(デフォルト)
-  -nico-rtmp-max-conn <num>      RTMPの同時接続数を設定
-  -nico-rtmp-index <num>[,<num>] RTMP録画を行うメディアファイルの番号を指定
   -nico-hls-port <portnum>       [実験的] ローカルなHLSサーバのポート番号
   -nico-limit-bw <bandwidth>     (+) HLSのBANDWIDTHの上限値を指定する。0=制限なし
                                  audio_high or audio_only = 音声のみ
