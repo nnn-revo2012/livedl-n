@@ -1,5 +1,5 @@
 
 package defines
 
-var Twitter = "@himananiito"
-var Email = "himananiito@yahoo.co.jp"
+var Twitter = "@nnn_revo2012"
+var Email = "nnn_revo2012@yahoo.co.jp"
