@@ -8,17 +8,17 @@ import (
 )
 
 var cmdList = []string{
-	"./bin/youtube-dl/youtube-dl",
-	"./bin/youtube-dl",
-	"./youtube-dl/youtube-dl",
-	"./youtube-dl",
-	"youtube-dl",
+	"./bin/yt-dlp/yt-dlp",
+	"./bin/yt-dlp",
+	"./yt-dlp/yt-dlp",
+	"./yt-dlp",
+	"yt-dlp",
 }
 
 func Open(opt... string) (cmd *exec.Cmd, stdout, stderr io.ReadCloser, err error) {
 	cmd, _, stdout, stderr, err = base.Open(&cmdList, false, true, true, false, opt)
 	if cmd == nil {
-		err = fmt.Errorf("youtube-dl not found")
+		err = fmt.Errorf("yt-dlp not found")
 		return
 	}
 	return

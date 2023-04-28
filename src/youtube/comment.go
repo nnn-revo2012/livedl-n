@@ -155,9 +155,18 @@ func getComment(gm *gorman.GoroutineManager, ctx context.Context, sig <-chan str
 						for _, run := range runs {
 							if text, ok := objs.FindString(run, "text"); ok {
 								message += text
-							} else if emojis, ok := objs.FindArray(run, "emoji", "shortcuts"); ok {
-								if emoji, ok := emojis[0].(string); ok {
-									message += emoji
+							} else {
+								custom, ok := objs.FindBool(run, "emoji", "isCustomEmoji")
+								if !ok || !custom {
+									if emoji, ok := objs.FindString(run, "emoji", "emojiId"); ok {
+										message += emoji
+									}
+								} else {
+									if emojis, ok := objs.FindArray(run, "emoji", "shortcuts"); ok {
+										if emoji, ok := emojis[0].(string); ok {
+											message += emoji
+										}
+									}
 								}
 							}
 						}

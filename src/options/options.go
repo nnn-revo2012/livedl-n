@@ -165,13 +165,13 @@ Youtube live録画用オプション:
   -yt-api-key <key>              (+) YouTube Data API v3 keyを設定する(未使用)
   -yt-no-streamlink=on           (+) Streamlinkを使用しない
   -yt-no-streamlink=off          (+) Streamlinkを使用する(デフォルト)
-  -yt-no-youtube-dl=on           (+) youtube-dlを使用しない
-  -yt-no-youtube-dl=off          (+) youtube-dlを使用する(デフォルト)
+  -yt-no-youtube-dl=on           (+) yt-dlpを使用しない
+  -yt-no-youtube-dl=off          (+) yt-dlpを使用する(デフォルト)
   -yt-comment-start              YouTube Liveアーカイブでコメント取得開始時間（秒）を指定
                                  ＜分＞:＜秒＞ | ＜時＞:＜分＞:＜秒＞ の形式でも指定可能
                                  0：続きからコメント取得  1：最初からコメント取得
-  -yt-emoji=on                   (+) コメントにemojiを表示する(デフォルト)
-  -yt-emoji=off                  (+) コメントにemojiを表示しない
+  -yt-emoji=on                   (+) コメントにAlternate emojisを表示する(デフォルト)
+  -yt-emoji=off                  (+) コメントにAlternate emojisを表示しない
 
 変換オプション:
   -extract-chunks=off            (+) -d2mで動画ファイルに書き出す(デフォルト)
