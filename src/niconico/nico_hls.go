@@ -1931,9 +1931,9 @@ func postTsRsv1(opt options.Option) (err error) {
 func postTsRsvBase(num int, vid, session string) (err error) {
 	var uri string
 	if num == 0 {
-		uri = fmt.Sprintf("https://live.nicovideo.jp/api/watchingreservation?mode=watch_num&vid=%s", vid)
+		uri = fmt.Sprintf("https://live2.nicovideo.jp/api/watchingreservation?mode=watch_num&vid=%s", vid)
 	} else {
-		uri = fmt.Sprintf("https://live.nicovideo.jp/api/watchingreservation?mode=confirm_watch_my&vid=%s", vid)
+		uri = fmt.Sprintf("https://live2.nicovideo.jp/api/watchingreservation?mode=confirm_watch_my&vid=%s", vid)
 	}
 
 	header := map[string]string{
@@ -1993,7 +1993,7 @@ func postTsRsvBase(num int, vid, session string) (err error) {
 		}
 	}
 
-	dat1, _, _, err, neterr := postStringHeader("https://live.nicovideo.jp/api/watchingreservation", header, vals)
+	dat1, _, _, err, neterr := postStringHeader("https://live2.nicovideo.jp/api/watchingreservation", header, vals)
 	if err != nil || neterr != nil {
 		if err == nil {
 			err = neterr
@@ -2021,10 +2021,10 @@ func postRsvUseTs(isRsv bool, opt options.Option) (err error) {
 	if ma := regexp.MustCompile(`lv(\d+)`).FindStringSubmatch(opt.NicoLiveId); len(ma) > 0 {
 		vid = ma[1]
 	}
-	uri := "https://live.nicovideo.jp/api/timeshift.ticket.use"
+	uri := "https://live2.nicovideo.jp/api/timeshift.ticket.use"
 	RsvMsg := "Use"
 	if isRsv {
-		uri = "https://live.nicovideo.jp/api/timeshift.reservations";
+		uri = "https://live2.nicovideo.jp/api/timeshift.reservations";
 		RsvMsg = "Rsv"
 	}
 	header := map[string]string{
