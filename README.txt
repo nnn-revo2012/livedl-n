@@ -1,11 +1,9 @@
-livedl (20221122.52-windows-amd64)
+livedl-lite (20230901.53-windows-amd64)
 Usage:
 livedl [COMMAND] options... [--] FILE
 
 COMMAND:
   -nico    ニコニコ生放送の録画
-  -tcas    ツイキャスの録画
-  -yt      YouTube Liveの録画
   -d2m     録画済みのdb(.sqlite3)をmp4に変換する(-db-to-mp4)
   -dbinfo  録画済みのdb(.sqlite3)の各種情報を表示する
            e.g. $ livedl -dbinfo -- 'C:/home/hogehoge/livedl/rec/lvxxxxxxxx.sqlite3'
@@ -46,9 +44,9 @@ COMMAND:
   -nico-force-reservation=off    (+) 自動的にタイムシフト予約しない(デフォルト)
   -nico-skip-hb=on               (+) コメント書き出し時に/hbコマンドを出さない
   -nico-skip-hb=off              (+) コメント書き出し時に/hbコマンドも出す(デフォルト)
-  -nico-adjust-vpos=on           (+) コメント書き出し時にvposの値を補正する
+  -nico-adjust-vpos=on           (+) コメント書き出し時にvposの値を補正する(デフォルト)
                                  vposの値が-1000より小さい場合はコメント出力しない
-  -nico-adjust-vpos=off          (+) コメント書き出し時にvposの値をそのまま出力する(デフォルト)
+  -nico-adjust-vpos=off          (+) コメント書き出し時にvposの値をそのまま出力する
   -nico-ts-start <num>           タイムシフトの録画を指定した再生時間（秒）から開始する
   -nico-ts-stop <num>            タイムシフトの録画を指定した再生時間（秒）で停止する
                                  上記2つは ＜分＞:＜秒＞ | ＜時＞:＜分＞:＜秒＞ の形式でも指定可能
@@ -60,25 +58,6 @@ COMMAND:
   -nico-conv-force-concat        MP4への変換で画質変更または抜けがあっても分割しないように設定
   -nico-conv-force-concat=on     (+) 上記を有効に設定
   -nico-conv-force-concat=off    (+) 上記を無効に設定(デフォルト)
-
-ツイキャス録画用オプション:
-  -tcas-retry=on                 (+) 録画終了後に再試行を行う
-  -tcas-retry=off                (+) 録画終了後に再試行を行わない
-  -tcas-retry-timeout            (+) 再試行を開始してから終了するまでの時間（分)
-                                     -1で無限ループ。デフォルト: 5分
-  -tcas-retry-interval           (+) 再試行を行う間隔（秒）デフォルト: 60秒
-
-Youtube live録画用オプション:
-  -yt-api-key <key>              (+) YouTube Data API v3 keyを設定する(未使用)
-  -yt-no-streamlink=on           (+) Streamlinkを使用しない
-  -yt-no-streamlink=off          (+) Streamlinkを使用する(デフォルト)
-  -yt-no-youtube-dl=on           (+) youtube-dlを使用しない
-  -yt-no-youtube-dl=off          (+) youtube-dlを使用する(デフォルト)
-  -yt-comment-start              YouTube Liveアーカイブでコメント取得開始時間（秒）を指定
-                                 ＜分＞:＜秒＞ | ＜時＞:＜分＞:＜秒＞ の形式でも指定可能
-                                 0：続きからコメント取得  1：最初からコメント取得
-  -yt-emoji=on                   (+) コメントにemojiを表示する(デフォルト)
-  -yt-emoji=off                  (+) コメントにemojiを表示しない
 
 変換オプション:
   -extract-chunks=off            (+) -d2mで動画ファイルに書き出す(デフォルト)
@@ -98,11 +77,15 @@ FILE:
   ニコニコ生放送/nicolive:
     https://live.nicovideo.jp/watch/lvXXXXXXXXX
     lvXXXXXXXXX
-  ツイキャス/twitcasting:
-    https://twitcasting.tv/XXXXX
-
 
 ﻿更新履歴
+20230901.53
+- Version/Help表示時に livedl-lite と表示するよう修正
+- Update changelog.txt README.txt
+- ニコ生タイムシフト倍速録画機能を削除
+- -nico-adjust-vposのデフォルトをonに変更
+- Youtube/Twitcastingの録画機能・オプションを削除
+
 20221122.52
 ・録画済みのデータベース(sqlite3)の各種情報を表示するコマンド(-dbinfo)追加
    $ livedl -dbinfo -- 'database filename(.sqlite3) with fullpath'

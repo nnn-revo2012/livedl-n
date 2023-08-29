@@ -14,3 +14,9 @@ func GetBuildNo() string {
 		runtime.GOARCH,
 	)
 }
+func GetBuildLite() string {
+	return fmt.Sprintf(
+		"%v",
+		BuildLite,
+	)
+}

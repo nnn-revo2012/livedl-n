@@ -6,11 +6,11 @@ import (
 	"path/filepath"
 	"regexp"
 	"github.com/nnn-revo2012/livedl/options"
-	"github.com/nnn-revo2012/livedl/twitcas"
+	//"github.com/nnn-revo2012/livedl/twitcas"
 	"github.com/nnn-revo2012/livedl/niconico"
 	"github.com/nnn-revo2012/livedl/youtube"
 	"github.com/nnn-revo2012/livedl/zip2mp4"
-	"time"
+	//"time"
 	"strings"
 	"github.com/nnn-revo2012/livedl/httpbase"
 )
@@ -98,59 +98,6 @@ func main() {
 	default:
 		fmt.Printf("Unknown command: %v\n", opt.Command)
 		os.Exit(1)
-
-	case "TWITCAS":
-		var doneTime int64
-		for {
-			done, dbLocked := twitcas.TwitcasRecord(opt.TcasId, "")
-			if dbLocked {
-				break
-			}
-			if (! opt.TcasRetry) {
-				break
-			}
-
-			if opt.TcasRetryTimeoutMinute < 0 {
-
-			} else if done {
-				doneTime = time.Now().Unix()
-
-			} else {
-				if doneTime == 0 {
-					doneTime = time.Now().Unix()
-				} else {
-					delta := time.Now().Unix() - doneTime
-					var minutes int
-					if opt.TcasRetryTimeoutMinute == 0 {
-						minutes = options.DefaultTcasRetryTimeoutMinute
-					} else {
-						minutes = opt.TcasRetryTimeoutMinute
-					}
-
-					if minutes > 0 {
-						if delta > int64(minutes * 60) {
-							break
-						}
-					}
-				}
-			}
-
-			var interval int
-			if opt.TcasRetryInterval <= 0 {
-				interval = options.DefaultTcasRetryInterval
-			} else {
-				interval = opt.TcasRetryInterval
-			}
-			select {
-			case <-time.After(time.Duration(interval) * time.Second):
-			}
-		}
-
-	case "YOUTUBE":
-		err := youtube.Record(opt.YoutubeId, opt.YtNoStreamlink, opt.YtNoYoutubeDl, opt.YtCommentStart)
-		if err != nil {
-			fmt.Println(err)
-		}
 
 	case "NICOLIVE":
 		hlsPlaylistEnd, dbname, err := niconico.Record(opt);

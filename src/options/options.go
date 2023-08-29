@@ -80,7 +80,7 @@ func versionStr() string {
 	cmd := filepath.Base(os.Args[0])
 	ext := filepath.Ext(cmd)
 	cmd = strings.TrimSuffix(cmd, ext)
-	return fmt.Sprintf(`%s (%s)`, cmd, buildno.GetBuildNo())
+	return fmt.Sprintf(`%s%s (%s)`, cmd, buildno.GetBuildLite(), buildno.GetBuildNo())
 }
 func version() {
 	fmt.Println(versionStr())
@@ -91,14 +91,12 @@ func Help(verbose ...bool) {
 	ext := filepath.Ext(cmd)
 	cmd = strings.TrimSuffix(cmd, ext)
 
-	format := `%s (%s)
+	format := `%s%s (%s)
 Usage:
 %s [COMMAND] options... [--] FILE
 
 COMMAND:
   -nico    ニコニコ生放送の録画
-  -tcas    ツイキャスの録画
-  -yt      YouTube Liveの録画
   -d2m     録画済みのdb(.sqlite3)をmp4に変換する(-db-to-mp4)
   -dbinfo  録画済みのdb(.sqlite3)の各種情報を表示する
            e.g. $ livedl -dbinfo -- 'C:/home/hogehoge/livedl/rec/lvxxxxxxxx.sqlite3'
@@ -139,9 +137,9 @@ COMMAND:
   -nico-force-reservation=off    (+) 自動的にタイムシフト予約しない(デフォルト)
   -nico-skip-hb=on               (+) コメント書き出し時に/hbコマンドを出さない
   -nico-skip-hb=off              (+) コメント書き出し時に/hbコマンドも出す(デフォルト)
-  -nico-adjust-vpos=on           (+) コメント書き出し時にvposの値を補正する
+  -nico-adjust-vpos=on           (+) コメント書き出し時にvposの値を補正する(デフォルト)
                                  vposの値が-1000より小さい場合はコメント出力しない
-  -nico-adjust-vpos=off          (+) コメント書き出し時にvposの値をそのまま出力する(デフォルト)
+  -nico-adjust-vpos=off          (+) コメント書き出し時にvposの値をそのまま出力する
   -nico-ts-start <num>           タイムシフトの録画を指定した再生時間（秒）から開始する
   -nico-ts-stop <num>            タイムシフトの録画を指定した再生時間（秒）で停止する
                                  上記2つは ＜分＞:＜秒＞ | ＜時＞:＜分＞:＜秒＞ の形式でも指定可能
@@ -153,25 +151,6 @@ COMMAND:
   -nico-conv-force-concat        MP4への変換で画質変更または抜けがあっても分割しないように設定
   -nico-conv-force-concat=on     (+) 上記を有効に設定
   -nico-conv-force-concat=off    (+) 上記を無効に設定(デフォルト)
-
-ツイキャス録画用オプション:
-  -tcas-retry=on                 (+) 録画終了後に再試行を行う
-  -tcas-retry=off                (+) 録画終了後に再試行を行わない
-  -tcas-retry-timeout            (+) 再試行を開始してから終了するまでの時間（分)
-                                     -1で無限ループ。デフォルト: 5分
-  -tcas-retry-interval           (+) 再試行を行う間隔（秒）デフォルト: 60秒
-
-Youtube live録画用オプション:
-  -yt-api-key <key>              (+) YouTube Data API v3 keyを設定する(未使用)
-  -yt-no-streamlink=on           (+) Streamlinkを使用しない
-  -yt-no-streamlink=off          (+) Streamlinkを使用する(デフォルト)
-  -yt-no-youtube-dl=on           (+) yt-dlpを使用しない
-  -yt-no-youtube-dl=off          (+) yt-dlpを使用する(デフォルト)
-  -yt-comment-start              YouTube Liveアーカイブでコメント取得開始時間（秒）を指定
-                                 ＜分＞:＜秒＞ | ＜時＞:＜分＞:＜秒＞ の形式でも指定可能
-                                 0：続きからコメント取得  1：最初からコメント取得
-  -yt-emoji=on                   (+) コメントにAlternate emojisを表示する(デフォルト)
-  -yt-emoji=off                  (+) コメントにAlternate emojisを表示しない
 
 変換オプション:
   -extract-chunks=off            (+) -d2mで動画ファイルに書き出す(デフォルト)
@@ -191,10 +170,8 @@ FILE:
   ニコニコ生放送/nicolive:
     https://live.nicovideo.jp/watch/lvXXXXXXXXX
     lvXXXXXXXXX
-  ツイキャス/twitcasting:
-    https://twitcasting.tv/XXXXX
 `
-	fmt.Printf(format, cmd, buildno.GetBuildNo(), cmd)
+	fmt.Printf(format, cmd, buildno.GetBuildLite(), buildno.GetBuildNo(), cmd)
 
 	for _, b := range verbose {
 		if b {
@@ -586,55 +563,6 @@ func ParseArgs() (opt Option) {
 			opt.ConfPass = str
 			return
 		}},
-		Parser{regexp.MustCompile(`\Ahttps?://twitcasting\.tv/([^/]+)(?:/.*)?\z`), func() error {
-			opt.TcasId = match[1]
-			opt.Command = "TWITCAS"
-			return nil
-		}},
-		Parser{regexp.MustCompile(`\A(?i)--?tcas-?retry(?:=(on|off))\z`), func() error {
-			if strings.EqualFold(match[1], "on") {
-				opt.TcasRetry = true
-			} else if strings.EqualFold(match[1], "off") {
-				opt.TcasRetry = false
-			}
-			dbConfSet(db, "TcasRetry", opt.TcasRetry)
-			return nil
-		}},
-		Parser{regexp.MustCompile(`\A(?i)--?tcas-?retry-?timeout(?:-?minutes?)?\z`), func() error {
-			s, err := nextArg()
-			if err != nil {
-				return err
-			}
-			num, err := strconv.Atoi(s)
-			if err != nil {
-				return fmt.Errorf("--tcas-retry-timeout: Not a number: %s\n", s)
-			}
-			opt.TcasRetryTimeoutMinute = num
-			dbConfSet(db, "TcasRetryTimeoutMinute", opt.TcasRetryTimeoutMinute)
-			return nil
-		}},
-		Parser{regexp.MustCompile(`\A(?i)--?tcas-?retry-?interval\z`), func() error {
-			s, err := nextArg()
-			if err != nil {
-				return err
-			}
-			num, err := strconv.Atoi(s)
-			if err != nil {
-				return fmt.Errorf("--tcas-retry-interval: Not a number: %s\n", s)
-			}
-			if num <= 0 {
-				return fmt.Errorf("--tcas-retry-interval: Invalid: %d: greater than 1\n", num)
-			}
-
-			opt.TcasRetryInterval = num
-			dbConfSet(db, "TcasRetryInterval", opt.TcasRetryInterval)
-			return nil
-		}},
-		Parser{regexp.MustCompile(`\Ahttps?://(?:[^/]*\.)*youtube\.com/(?:.*\W)?v=([\w-]+)(?:[^\w-].*)?\z`), func() error {
-			opt.YoutubeId = match[1]
-			opt.Command = "YOUTUBE"
-			return nil
-		}},
 		Parser{regexp.MustCompile(`\A(?i)--?nico\z`), func() error {
 			opt.Command = "NICOLIVE"
 			return nil
@@ -656,14 +584,6 @@ func ParseArgs() (opt Option) {
 				return fmt.Errorf("--nico-test-timeout: Invalid: %d: must be greater than or equal to 1\n", num)
 			}
 			opt.NicoTestTimeout = num
-			return nil
-		}},
-		Parser{regexp.MustCompile(`\A(?i)--?tcas\z`), func() error {
-			opt.Command = "TWITCAS"
-			return nil
-		}},
-		Parser{regexp.MustCompile(`\A(?i)--?(?:yt|youtube|youtube-live)\z`), func() error {
-			opt.Command = "YOUTUBE"
 			return nil
 		}},
 		Parser{regexp.MustCompile(`\A(?i)--?(?:z|zip)-?(?:2|to)-?(?:m|mp4)\z`), func() error {
@@ -1002,65 +922,6 @@ func ParseArgs() (opt Option) {
 			dbConfSet(db, "NicoForceResv", opt.NicoForceResv)
 			return nil
 		}},
-		Parser{regexp.MustCompile(`\A(?i)--?yt-?api-?key\z`), func() (err error) {
-			s, err := nextArg()
-			if err != nil {
-				return
-			}
-			if s == "" {
-				return fmt.Errorf("--yt-api-key: null string not allowed\n", s)
-			}
-			err = SetYoutubeApiKey(s)
-			return
-		}},
-		Parser{regexp.MustCompile(`\A(?i)--?yt-?no-?streamlink(?:=(on|off))?\z`), func() (err error) {
-			if strings.EqualFold(match[1], "on") {
-				opt.YtNoStreamlink = true
-				dbConfSet(db, "YtNoStreamlink", opt.YtNoStreamlink)
-			} else if strings.EqualFold(match[1], "off") {
-				opt.YtNoStreamlink = false
-				dbConfSet(db, "YtNoStreamlink", opt.YtNoStreamlink)
-			} else {
-				opt.YtNoStreamlink = true
-			}
-			return nil
-		}},
-		Parser{regexp.MustCompile(`\A(?i)--?yt-?no-?youtube-?dl(?:=(on|off))?\z`), func() (err error) {
-			if strings.EqualFold(match[1], "on") {
-				opt.YtNoYoutubeDl = true
-				dbConfSet(db, "YtNoYoutubeDl", opt.YtNoYoutubeDl)
-			} else if strings.EqualFold(match[1], "off") {
-				opt.YtNoYoutubeDl = false
-				dbConfSet(db, "YtNoYoutubeDl", opt.YtNoYoutubeDl)
-			} else {
-				opt.YtNoYoutubeDl = true
-			}
-			return nil
-		}},
-		Parser{regexp.MustCompile(`\A(?i)--?yt-?emoji(?:=(on|off))?\z`), func() (err error) {
-			if strings.EqualFold(match[1], "on") {
-				opt.YtEmoji = true
-				dbConfSet(db, "YtEmoji", opt.YtEmoji)
-			} else if strings.EqualFold(match[1], "off") {
-				opt.YtEmoji = false
-				dbConfSet(db, "YtEmoji", opt.YtEmoji)
-			} else {
-				opt.YtEmoji = true
-			}
-			return
-		}},
-		Parser{regexp.MustCompile(`\A(?i)--?yt-?comment-?start\z`), func() (err error) {
-			s, err := nextArg()
-			if err != nil {
-				return err
-			}
-			num, err := parseTime(s)
-			if err != nil {
-				return fmt.Errorf("--yt-comment-start: Not a number %s\n", s)
-			}
-			opt.YtCommentStart = float64(num)
-			return nil
-		}},
 		Parser{regexp.MustCompile(`\A(?i)--?nico-?skip-?hb(?:=(on|off))?\z`), func() (err error) {
 			if strings.EqualFold(match[1], "on") {
 				opt.NicoSkipHb = true
@@ -1133,7 +994,7 @@ func ParseArgs() (opt Option) {
 				opt.NicoAdjustVpos = false
 				dbConfSet(db, "NicoAdjustVpos", opt.NicoAdjustVpos)
 			} else {
-				opt.NicoAdjustVpos = false
+				opt.NicoAdjustVpos = true
 			}
 			return
 		}},
