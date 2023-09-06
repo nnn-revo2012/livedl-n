@@ -1691,6 +1691,7 @@ func (hls *NicoHls) startMain() {
 			case "permit":
 			case "serverTime":
 			case "schedule":
+			case "tagUpdated":
 				// nop
 				//default:
 				//	fmt.Printf("%#v\n", res)
