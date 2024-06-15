@@ -1,11 +1,4 @@
 ﻿更新履歴
-20230901.53
-- Version/Help表示時に livedl-lite と表示するよう修正
-- Update changelog.txt README.txt
-- ニコ生タイムシフト倍速録画機能を削除
-- -nico-adjust-vposのデフォルトをonに変更
-- Youtube/Twitcastingの録画機能・オプションを削除
-
 20221122.52
 ・録画済みのデータベース(sqlite3)の各種情報を表示するコマンド(-dbinfo)追加
    $ livedl -dbinfo -- 'database filename(.sqlite3) with fullpath'

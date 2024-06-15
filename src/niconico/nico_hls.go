@@ -1402,9 +1402,12 @@ func (hls *NicoHls) getPlaylist(argUri *url.URL) (is403, isEnd, isStop, is500 bo
 
 			fmt.Printf("BANDWIDTH: %d\n", maxBw)
 			hls.playlist.bandwidth = maxBw
-			//fastTimeshift
-			hls.playlist.uriMaster = argUri
-			hls.playlist.uri = uri
+			if hls.isTimeshift && hls.fastTimeshift {
+
+			} else {
+				hls.playlist.uriMaster = argUri
+				hls.playlist.uri = uri
+			}
 			return hls.getPlaylist(uri)
 
 		} else {
@@ -1460,8 +1463,14 @@ func (hls *NicoHls) startPlaylist(uri string) {
 			select {
 			case <-time.After(dur):
 				var uri *url.URL
-				//fastTimeshift
-				uri = hls.playlist.uri
+				if hls.isTimeshift && hls.fastTimeshift {
+					u := hls.playlist.uriTimeshiftMaster.String()
+					u = regexp.MustCompile(`&start=\d+(?:\.\d*)?`).ReplaceAllString(u, "")
+					u += fmt.Sprintf("&start=%f", hls.timeshiftStart)
+					uri, _ = url.Parse(u)
+				} else {
+					uri = hls.playlist.uri
+				}
 
 				//fmt.Println(uri)
 
