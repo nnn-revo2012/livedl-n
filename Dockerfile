@@ -2,7 +2,7 @@ FROM golang:1.16-alpine as builder
 
 RUN apk add --no-cache \
         build-base \
-        git && \
+        git
 
 COPY . /tmp/livedl
 
