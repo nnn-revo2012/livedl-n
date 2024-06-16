@@ -1,4 +1,4 @@
-livedl (20221122.52-windows-amd64)
+livedl-lite (20230901.53-windows-amd64)
 Usage:
 livedl [COMMAND] options... [--] FILE
 
@@ -46,9 +46,9 @@ COMMAND:
   -nico-force-reservation=off    (+) 自動的にタイムシフト予約しない(デフォルト)
   -nico-skip-hb=on               (+) コメント書き出し時に/hbコマンドを出さない
   -nico-skip-hb=off              (+) コメント書き出し時に/hbコマンドも出す(デフォルト)
-  -nico-adjust-vpos=on           (+) コメント書き出し時にvposの値を補正する
+  -nico-adjust-vpos=on           (+) コメント書き出し時にvposの値を補正する(デフォルト)
                                  vposの値が-1000より小さい場合はコメント出力しない
-  -nico-adjust-vpos=off          (+) コメント書き出し時にvposの値をそのまま出力する(デフォルト)
+  -nico-adjust-vpos=off          (+) コメント書き出し時にvposの値をそのまま出力する
   -nico-ts-start <num>           タイムシフトの録画を指定した再生時間（秒）から開始する
   -nico-ts-stop <num>            タイムシフトの録画を指定した再生時間（秒）で停止する
                                  上記2つは ＜分＞:＜秒＞ | ＜時＞:＜分＞:＜秒＞ の形式でも指定可能
@@ -103,6 +103,16 @@ FILE:
 
 
 ﻿更新履歴
+20240616.54
+- Youtube/Twitcastingの録画機能・オプションを戻した
+
+20230901.53
+- Version/Help表示時に livedl-lite と表示するよう修正
+- Update changelog.txt README.txt
+- ニコ生タイムシフト倍速録画機能を削除
+- -nico-adjust-vposのデフォルトをonに変更
+- Youtube/Twitcastingの録画機能・オプションを削除
+
 20221122.52
 ・録画済みのデータベース(sqlite3)の各種情報を表示するコマンド(-dbinfo)追加
    $ livedl -dbinfo -- 'database filename(.sqlite3) with fullpath'

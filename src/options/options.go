@@ -80,7 +80,7 @@ func versionStr() string {
 	cmd := filepath.Base(os.Args[0])
 	ext := filepath.Ext(cmd)
 	cmd = strings.TrimSuffix(cmd, ext)
-	return fmt.Sprintf(`%s (%s)`, cmd, buildno.GetBuildNo())
+	return fmt.Sprintf(`%s%s (%s)`, cmd, buildno.GetBuildLite(), buildno.GetBuildNo())
 }
 func version() {
 	fmt.Println(versionStr())
@@ -91,7 +91,7 @@ func Help(verbose ...bool) {
 	ext := filepath.Ext(cmd)
 	cmd = strings.TrimSuffix(cmd, ext)
 
-	format := `%s (%s)
+	format := `%s%s (%s)
 Usage:
 %s [COMMAND] options... [--] FILE
 
@@ -139,9 +139,9 @@ COMMAND:
   -nico-force-reservation=off    (+) 自動的にタイムシフト予約しない(デフォルト)
   -nico-skip-hb=on               (+) コメント書き出し時に/hbコマンドを出さない
   -nico-skip-hb=off              (+) コメント書き出し時に/hbコマンドも出す(デフォルト)
-  -nico-adjust-vpos=on           (+) コメント書き出し時にvposの値を補正する
+  -nico-adjust-vpos=on           (+) コメント書き出し時にvposの値を補正する(デフォルト)
                                  vposの値が-1000より小さい場合はコメント出力しない
-  -nico-adjust-vpos=off          (+) コメント書き出し時にvposの値をそのまま出力する(デフォルト)
+  -nico-adjust-vpos=off          (+) コメント書き出し時にvposの値をそのまま出力する
   -nico-ts-start <num>           タイムシフトの録画を指定した再生時間（秒）から開始する
   -nico-ts-stop <num>            タイムシフトの録画を指定した再生時間（秒）で停止する
                                  上記2つは ＜分＞:＜秒＞ | ＜時＞:＜分＞:＜秒＞ の形式でも指定可能
@@ -194,7 +194,7 @@ FILE:
   ツイキャス/twitcasting:
     https://twitcasting.tv/XXXXX
 `
-	fmt.Printf(format, cmd, buildno.GetBuildNo(), cmd)
+	fmt.Printf(format, cmd, buildno.GetBuildLite(), buildno.GetBuildNo(), cmd)
 
 	for _, b := range verbose {
 		if b {
@@ -1133,7 +1133,7 @@ func ParseArgs() (opt Option) {
 				opt.NicoAdjustVpos = false
 				dbConfSet(db, "NicoAdjustVpos", opt.NicoAdjustVpos)
 			} else {
-				opt.NicoAdjustVpos = false
+				opt.NicoAdjustVpos = true
 			}
 			return
 		}},
