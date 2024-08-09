@@ -1414,6 +1414,20 @@ func (hls *NicoHls) getPlaylist(argUri *url.URL) (is403, isEnd, isStop, is500 bo
 	return
 }
 
+func (hls *NicoHls) streamSync(uri string) {
+	hls.startPGoroutine(func(sig <-chan struct{}) int {
+		m3u8, code, millisec, err, neterr := getString(uri)
+		if hls.nicoDebug {
+			fmt.Fprintf(os.Stderr, "%s:streamSync: code=%v, err=%v, neterr=%v, %v(ms) \n>>>%s<<<\n",
+				debug_Now(), code, err, neterr, millisec, m3u8)
+		}
+		if err != nil || neterr != nil {
+			return NETWORK_ERROR
+		}
+		return OK
+	})
+}
+
 func (hls *NicoHls) startPlaylist(uri string) {
 	hls.startPGoroutine(func(sig <-chan struct{}) int {
 		hls.playlist = playlist{}
@@ -1645,6 +1659,11 @@ func (hls *NicoHls) startMain() {
 				}
 
 			case "stream":
+				if sync_uri, ok := objs.FindString(res, "data", "syncUri"); ok {
+					if (!playlistStarted) && sync_uri != "" {
+						hls.streamSync(sync_uri)
+					}
+				}
 				if uri, ok := objs.FindString(res, "data", "uri"); ok {
 					if (!playlistStarted) && uri != "" {
 						playlistStarted = true
@@ -1674,18 +1693,15 @@ func (hls *NicoHls) startMain() {
 				}
 				return MAIN_DISCONNECT
 
-			case "room":
-				// comment
-				messageServerUri, ok := objs.FindString(res, "data", "messageServer", "uri")
+			case "room":	//2024/08/05　新メッセージサーバーに変更された
+				break;
+
+			case "messageServer":	//2024/08/05　新メッセージサーバーに変更された
+				messageServerUri, ok := objs.FindString(res, "data", "viewUri", "uri")
 				if !ok {
 					break
 				}
-				threadId, ok := objs.FindString(res, "data", "threadId")
-				if !ok {
-					break
-				}
-				waybackkey, _ := objs.FindString(res, "data", "waybackkey")
-				hls.startComment(messageServerUri, threadId, waybackkey)
+				hls.startComment(messageServerUri, "", "")
 
 			case "statistics":
 			case "permit":
@@ -2115,7 +2131,7 @@ func getProps(opt options.Option) (props interface{}, notLogin, rsvTs, useTs boo
 	// 新配信
 	if regexp.MustCompile(`ご指定のページが見つかりませんでした`).MatchString(dat) {
 		err = fmt.Errorf("getProps: page not found")
-	} else if regexp.MustCompile(`(放送者により削除されました|削除された可能性があります)`).MatchString(dat) {
+	} else if regexp.MustCompile(`(放送者により(削除されました|削除された可能性があります))`).MatchString(dat) {
 		err = fmt.Errorf("getProps: page not found")
 	} else if ma := regexp.MustCompile(`rejectedReasons&quot;:\[([^\]]+)\]`).FindStringSubmatch(dat); len(ma) > 0 {
 		ttt := strings.ReplaceAll(html.UnescapeString(ma[1]), "\",\"", " ")
