@@ -11,6 +11,7 @@ import (
 
 	"encoding/json"
 	"github.com/gorilla/websocket"
+	"github.com/nnn-revo2012/livedl/message"
 	"github.com/nnn-revo2012/livedl/files"
 	"github.com/nnn-revo2012/livedl/objs"
 	"github.com/nnn-revo2012/livedl/options"
@@ -659,6 +660,7 @@ func (hls *NicoHls) getCommentStarted() bool {
 	defer hls.mtxCommentStarted.Unlock()
 	return hls.commentStarted
 }
+/*
 func (hls *NicoHls) startComment(messageServerUri, threadId, waybackkey string) {
 	if (!hls.getCommentStarted()) && (!hls.commentDone) {
 		hls.setCommentStarted(true)
@@ -850,6 +852,207 @@ func (hls *NicoHls) startComment(messageServerUri, threadId, waybackkey string) 
 					}
 				}
 			}
+			return OK
+		})
+	}
+}
+*/
+
+func (hls *NicoHls) startComment(messageServerUri, threadId, waybackkey string) {
+	msc := message.NewMessageServerClient(messageServerUri, message.ProcessMessageData , message.NetworkError)
+
+	if (!hls.getCommentStarted()) && (!hls.commentDone) {
+		hls.setCommentStarted(true)
+
+		hls.startCGoroutine(func(sig <-chan struct{}) int {
+			defer func() {
+				hls.setCommentStarted(false)
+			}()
+
+			var err error
+
+			// メッセージサーバーに接続
+			log.Println("connect messageServer")
+			if !hls.interrupted() {
+				err = msc.DoConnect()
+				if err != nil {
+					log.Println("messageServer connect error:", err)
+					msc.Disconnect()
+					return COMMENT_WS_ERROR
+				}
+			}
+
+			hls.startCGoroutine(func(sig <-chan struct{}) int {
+				for !hls.interrupted() {
+					log.Println("connect messageServer at:", msc.GetNextStreamAt())
+					err = msc.DoConnect()
+					if err != nil {
+						log.Println("messageServer connect error:", err)
+						msc.Disconnect()
+						return COMMENT_WS_ERROR
+					}
+					select {
+					case <-time.After(30 * time.Second):
+						//if conn != nil {
+						//	if err := writeJson(""); err != nil {
+						//		if !hls.interrupted() {
+						//			log.Println("comment send null:", err)
+						//		}
+						//		return COMMENT_WS_ERROR
+						//	}
+						//} else {
+						//	return OK
+						//}
+						if msc.IsDisconnect() {
+							if !hls.interrupted() {
+								log.Println("messageServer disconnect")
+								msc.Disconnect()
+							}
+							return COMMENT_WS_ERROR
+						} else {
+							//fmt.Println("return OK")
+							//return OK
+						}
+					case <-sig:
+						msc.Disconnect()
+						return GOT_SIGNAL
+					}
+				}
+				return OK
+			})
+
+/*
+			var mtxChatTime sync.Mutex
+			var _chatCount int64
+			incChatCount := func() {
+				mtxChatTime.Lock()
+				defer mtxChatTime.Unlock()
+				_chatCount++
+			}
+			getChatCount := func() int64 {
+				mtxChatTime.Lock()
+				defer mtxChatTime.Unlock()
+				return _chatCount
+			}
+*/
+/*
+			if hls.isTimeshift {
+
+				hls.startCGoroutine(func(sig <-chan struct{}) int {
+					defer func() {
+						fmt.Println("Comment done.")
+					}()
+
+					var pre int64
+					var finishHint int
+					for !hls.interrupted() {
+						select {
+						case <-time.After(1 * time.Second):
+							c := getChatCount()
+							if c == 0 || c == pre {
+
+								_, when := hls.getTsCommentFromWhen()
+
+								//fmt.Printf("getTsCommentFromWhen %f %d\n", when, res_from)
+
+								err = writeJson([]OBJ{
+									OBJ{"ping": OBJ{"content": "rs:1"}},
+									OBJ{"ping": OBJ{"content": "ps:5"}},
+									OBJ{"thread": OBJ{
+										"fork":        0,
+										"nicoru":      0,
+										"res_from":    -1000,
+										"scores":      1,
+										"thread":      threadId,
+										"user_id":     hls.myUserId,
+										"version":     "20061206",
+										"waybackkey":  waybackkey,
+										"when":        when + 1,
+										"with_global": 1,
+									}},
+									OBJ{"ping": OBJ{"content": "pf:5"}},
+									OBJ{"ping": OBJ{"content": "rf:1"}},
+								})
+								if err != nil {
+									return NETWORK_ERROR
+								}
+
+							} else if c < pre+100 {
+								// 通常,1000カウント弱増えるが、少ししか増えない場合
+								finishHint++
+								if finishHint > 2 {
+									return COMMENT_DONE
+								}
+
+							} else {
+								finishHint = 0
+							}
+							pre = c
+
+						case <-sig:
+							return GOT_SIGNAL
+						}
+					}
+					return COMMENT_DONE
+				})
+
+			} else {
+				err = writeJson([]OBJ{
+					OBJ{"ping": OBJ{"content": "rs:0"}},
+					OBJ{"ping": OBJ{"content": "ps:0"}},
+					OBJ{"thread": OBJ{
+						"fork":        0,
+						"nicoru":      0,
+						"res_from":    -100,
+						"scores":      1,
+						"thread":      threadId,
+						"user_id":     hls.myUserId,
+						"version":     "20061206",
+						"with_global": 1,
+					}},
+					OBJ{"ping": OBJ{"content": "pf:0"}},
+					OBJ{"ping": OBJ{"content": "rf:0"}},
+				})
+				if err != nil {
+					if !hls.interrupted() {
+						log.Println("comment send first:", err)
+					}
+					return COMMENT_WS_ERROR
+				}
+			}
+
+			for !hls.interrupted() {
+				select {
+				case <-sig:
+					return GOT_SIGNAL
+				default:
+					var res interface{}
+					// Blocks here
+					if err = conn.ReadJSON(&res); err != nil {
+						return COMMENT_WS_ERROR
+					}
+
+					//fmt.Printf("debug %#v\n", res)
+
+					if data, ok := objs.Find(res, "chat"); ok {
+						if err := hls.commentHandler("chat", data); err != nil {
+							return COMMENT_SAVE_ERROR
+						}
+						incChatCount()
+
+					} else if data, ok := objs.Find(res, "thread"); ok {
+						if err := hls.commentHandler("thread", data); err != nil {
+							return COMMENT_SAVE_ERROR
+						}
+
+					} else if _, ok := objs.Find(res, "ping"); ok {
+						// nop
+					} else {
+						fmt.Printf("[FIXME] Unknown Message: %#v\n", res)
+					}
+				}
+			}
+*/
 			return OK
 		})
 	}
@@ -1701,7 +1904,7 @@ func (hls *NicoHls) startMain() {
 				if !ok {
 					break
 				}
-				hls.startComment(messageServerUri, "", "")
+				go hls.startComment(messageServerUri, "", "")
 
 			case "statistics":
 			case "permit":

@@ -1,0 +1,177 @@
+//package message
+package main
+
+// チャンクデーターを読み込んでチャンクを分割してProtobufでデコードして表示する
+// ほかのソースと整合性が取れないので変更するが動作確認用として残す
+
+import (
+    "fmt"
+    "io"
+    "log"
+    "os"
+
+	pb "github.com/nnn-revo2012/livedl/proto"
+
+	"github.com/golang/protobuf/proto"
+)
+
+type Reader struct {
+	buffer []byte
+}
+
+func (r *Reader) Read() <-chan []byte {
+	out := make(chan []byte)
+
+	go func() {
+		defer close(out)
+		t := 0
+
+		for {
+			e, _ := r.decodeVarint(r.buffer, t)
+			//fmt.Println(e, tNew)
+			if e == nil {
+				break
+			}
+
+			a, n := e.value, e.offset
+			o := n + 1
+			rEnd := o + a
+			if len(r.buffer) < rEnd {
+				break
+			}
+			t = rEnd
+			data := r.fromBinary(r.buffer[o:t])
+			out <- data
+		}
+
+		if t > 0 {
+			r.buffer = r.buffer[t:]
+		}
+	}()
+
+	//fmt.Println("Read end.")
+	//fmt.Println(len(out))
+
+	return out
+}
+
+func (r *Reader) decodeVarint(data []byte, offset int) (*varintResult, int) {
+	value := 0
+	shift := 0
+	length := len(data)
+
+	for {
+		if length <= offset {
+			return nil, offset
+		}
+
+		byteValue := data[offset]
+		more := (byteValue & 128) != 0
+		value |= int(byteValue&127) << shift
+
+		if more {
+			offset++
+			shift += 7
+		} else {
+			break
+		}
+	}
+
+	return &varintResult{value: value, offset: offset}, offset
+}
+
+func (r *Reader) fromBinary(data []byte) []byte {
+	// ここにバイナリデータを変換する処理を書きます
+	return data
+}
+
+type varintResult struct {
+	value  int
+	offset int
+}
+
+// 以下単体テスト用
+func main() {
+
+    // 読み込むバイナリファイルのパス
+    filePath := "./BBw7jL_9uu_0.bin"
+	//next:{at:1723789941}
+
+    //filePath := "./BBw7jL_9uu_1.bin"
+	//backward:{until:{seconds:1723789900}  segment:{uri:"https://mpn.live.nicovideo.jp/data/backward/v4/BBxEfXcPJuFVyZ97aTmoSSLC4mVIjNHLXX6cMHpoJSjj5Pqqp4odv_9O_2dYB6oiaO-SuaVX34RJTDToKZNwr5gBWks"}  snapshot:{uri:"https://mpn.live.nicovideo.jp/data/snapshot/v4/BByuTtvHa5vSWxnGEbDrPivYTDLuPGR2W1WXoiCRISeTQwgw-T27nbvwovofl3rKo3heRUkha5Mb42vsPvw4Qw"}}
+	//previous:{from:{seconds:1723789916}  until:{seconds:1723789932}  uri:"https://mpn.live.nicovideo.jp/data/segment/v4/BBzuEZXfmsvy4vfcCoBFmp0sjQJX13dqzTxyrxhNIw_2kLl1Jsc6tllJh93dITT5CKj7_U16-MvwtIt-DKIFmr2k"}
+	//segment:{from:{seconds:1723789932}  until:{seconds:1723789948}  uri:"https://mpn.live.nicovideo.jp/data/segment/v4/BBwWCLcROYRA-MqsINQ8cjWLXsAqzVNfiMfFlT-UI6CxOQweAhdxlC305oHkdckSTggbyDbPgEzO-1BIbFrP-WpF"}
+
+    //filePath := "./segment_BBwPRLiwjh_1.bin"
+	//signal:Flushed
+	//meta:{id:"EhkKEgmnfpMpflmRARGAgCeqCJiSphCg05cJ"  at:{seconds:1723783326  nanos:99385000}  origin:{chat:{live_id:345542146}}}  message:{chat:{content:"ディズニー🐭⁣"  vpos:25088437  hashed_user_id:"a:uDUsdfHsK39fLTLX"  modifier:{}  no:90541}}
+	//meta:{id:"EhkKEgklcC5UflmRARFM7bn7k3zOohCg05cJ"  at:{seconds:1723783337  nanos:6681000}  origin:{chat:{live_id:345542146}}}  message:{chat:{content:"安倍ちゃんと日本会議のお気に入りだったころもあったからな。早苗"  vpos:25093090  hashed_user_id:"a:TfX7f8hyc1VOjYb7"  modifier:{}  no:90549}}
+
+    // ファイルを開く
+    file, err := os.Open(filePath)
+    if err != nil {
+        log.Fatalf("Failed to open file: %v", err)
+    }
+    defer file.Close()
+
+    // ファイルのサイズを取得
+    fileInfo, err := file.Stat()
+    if err != nil {
+        log.Fatalf("Failed to get file info: %v", err)
+    }
+    fileSize := fileInfo.Size()
+
+    // ファイルの内容を格納するバイトスライスを作成
+    buf := make([]byte, fileSize)
+
+    // ファイルをバイトスライスに読み込む
+    _, err = io.ReadFull(file, buf)
+    if err != nil {
+        log.Fatalf("Failed to read file: %v", err)
+    }
+
+    // 読み込んだデータを表示
+    fmt.Printf("Read %d bytes from file\n", len(buf))
+    //fmt.Printf("Data: %x\n", buffer) // 16進数で出力
+
+	reader := &Reader{
+		//buffer: []byte{ /* バッファデータをここに挿入します */ },
+		//buffer: []byte{ 0x08, 0x22, 0x06, 0x08, 0x0f5, 0x0e4, 0x0fb, 0x0b5, 0x06 },
+		buffer: buf,
+	}
+
+	for data := range reader.Read() {
+		if len(data) <= 0 {
+			fmt.Println("null data")
+			continue
+		}
+		fmt.Println(len(data))
+		//fmt.Println(string(data))
+		ce := &pb.ChunkedEntry{}
+		if err := proto.Unmarshal(data, ce); err != nil {
+			log.Fatalln("Failed to parse ChunkedData:", err)
+		}
+		//fmt.Println(ce)
+		s := ce.String()
+		fmt.Println(s)
+		//fmt.Println(ce.GetNext())
+		//at:1723789941
+	}
+
+/*
+	for data := range reader.Read() {
+		if len(data) <= 0 {
+			fmt.Println("null data")
+			continue
+		}
+		fmt.Println(len(data))
+		//fmt.Println(string(data))
+		cm := &pb.ChunkedMessage{}
+		if err := proto.Unmarshal(data, cm); err != nil {
+			log.Fatalln("Failed to parse ChunkedMessage:", err)
+		}
+		fmt.Println(cm)
+	}
+*/
+
+}
