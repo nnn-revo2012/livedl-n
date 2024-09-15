@@ -11,7 +11,6 @@ import (
 
 	"encoding/json"
 	"github.com/gorilla/websocket"
-	"github.com/nnn-revo2012/livedl/message"
 	"github.com/nnn-revo2012/livedl/files"
 	"github.com/nnn-revo2012/livedl/objs"
 	"github.com/nnn-revo2012/livedl/options"
@@ -858,8 +857,57 @@ func (hls *NicoHls) startComment(messageServerUri, threadId, waybackkey string) 
 }
 */
 
+func (hls *NicoHls) ConnectSegmentServer(uri string, dummy bool) {
+	ssc := NewSegmentServerClient(uri, ProcessSegmentData , hls, NetworkError, false)
+
+	hls.startCGoroutine(func(sig <-chan struct{}) int {
+		var err error
+
+		// セグメントサーバーに接続
+		log.Println("connect segmentServer")
+		err = ssc.DoConnect()
+		if err != nil {
+			log.Println("segmentServer connect error:", err)
+			ssc.Disconnect()
+			return COMMENT_WS_ERROR
+		}
+		if hls.interrupted() {
+			ssc.Disconnect()
+			return OK
+		}
+		select {
+		case <-time.After(5 * time.Second):
+			//if conn != nil {
+			//	if err := writeJson(""); err != nil {
+			//		if !hls.interrupted() {
+			//			log.Println("comment send null:", err)
+			//		}
+			//		return COMMENT_WS_ERROR
+			//	}
+			//} else {
+			//	return OK
+			//}
+			if ssc.IsDisconnect() {
+				if !hls.interrupted() {
+					log.Println("segmentServer disconnect")
+					ssc.Disconnect()
+				}
+				return COMMENT_WS_ERROR
+			} else {
+				//fmt.Println("return OK")
+				//return OK
+			}
+		case <-sig:
+			ssc.Disconnect()
+			return GOT_SIGNAL
+		}
+		return OK
+	})
+
+}
+
 func (hls *NicoHls) startComment(messageServerUri, threadId, waybackkey string) {
-	msc := message.NewMessageServerClient(messageServerUri, message.ProcessMessageData , message.NetworkError)
+	msc := NewMessageServerClient(messageServerUri, ProcessMessageData , hls, NetworkError)
 
 	if (!hls.getCommentStarted()) && (!hls.commentDone) {
 		hls.setCommentStarted(true)

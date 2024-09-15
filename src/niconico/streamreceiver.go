@@ -1,4 +1,4 @@
-package message
+package niconico
 
 import (
 	"bytes"
@@ -14,12 +14,12 @@ type StreamReceiver[T any] struct {
 	cancellationCtx    context.Context
 	cancelFunc         context.CancelFunc
 	buffer             *bytes.Buffer
-	processData        func([]byte, *T) error
+	processData        func([]byte, *T, *NicoHls) error
 	unexpectedDisconnect bool
 	mu                 sync.Mutex
 }
 
-func NewStreamReceiver[T any] (processData func([]byte, *T) error) *StreamReceiver[T] {
+func NewStreamReceiver[T any] (processData func([]byte, *T, *NicoHls) error) *StreamReceiver[T] {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return &StreamReceiver[T]{
@@ -31,7 +31,7 @@ func NewStreamReceiver[T any] (processData func([]byte, *T) error) *StreamReceiv
 	}
 }
 
-func (sr *StreamReceiver[T]) Receive (url string, headers map[string]string, msc *T) error {
+func (sr *StreamReceiver[T]) Receive (url string, headers map[string]string, msc *T, hls *NicoHls) error {
 	client := &http.Client{
 		Timeout: 30 * time.Second,
 	}
@@ -83,7 +83,7 @@ func (sr *StreamReceiver[T]) Receive (url string, headers map[string]string, msc
 				sr.buffer.Write(dataChunk)
 
 				//err = sr.processData(dataChunk, stream)
-				err = sr.processData(dataChunk, msc)
+				err = sr.processData(dataChunk, msc, hls)
 				if err != nil {
 					return err
 				}

@@ -9,10 +9,13 @@ import (
     "io"
     "log"
     "os"
+    //"regexp"
+    "encoding/json"
 
 	pb "github.com/nnn-revo2012/livedl/proto"
 
-	"github.com/golang/protobuf/proto"
+    "google.golang.org/protobuf/encoding/protojson"
+    "google.golang.org/protobuf/proto"
 )
 
 type Reader struct {
@@ -94,7 +97,7 @@ type varintResult struct {
 func main() {
 
     // 読み込むバイナリファイルのパス
-    filePath := "./BBw7jL_9uu_0.bin"
+    //filePath := "./BBw7jL_9uu_0.bin"
 	//next:{at:1723789941}
 
     //filePath := "./BBw7jL_9uu_1.bin"
@@ -102,7 +105,7 @@ func main() {
 	//previous:{from:{seconds:1723789916}  until:{seconds:1723789932}  uri:"https://mpn.live.nicovideo.jp/data/segment/v4/BBzuEZXfmsvy4vfcCoBFmp0sjQJX13dqzTxyrxhNIw_2kLl1Jsc6tllJh93dITT5CKj7_U16-MvwtIt-DKIFmr2k"}
 	//segment:{from:{seconds:1723789932}  until:{seconds:1723789948}  uri:"https://mpn.live.nicovideo.jp/data/segment/v4/BBwWCLcROYRA-MqsINQ8cjWLXsAqzVNfiMfFlT-UI6CxOQweAhdxlC305oHkdckSTggbyDbPgEzO-1BIbFrP-WpF"}
 
-    //filePath := "./segment_BBwPRLiwjh_1.bin"
+    filePath := "./segment_BBwPRLiwjh_1.bin"
 	//signal:Flushed
 	//meta:{id:"EhkKEgmnfpMpflmRARGAgCeqCJiSphCg05cJ"  at:{seconds:1723783326  nanos:99385000}  origin:{chat:{live_id:345542146}}}  message:{chat:{content:"ディズニー🐭⁣"  vpos:25088437  hashed_user_id:"a:uDUsdfHsK39fLTLX"  modifier:{}  no:90541}}
 	//meta:{id:"EhkKEgklcC5UflmRARFM7bn7k3zOohCg05cJ"  at:{seconds:1723783337  nanos:6681000}  origin:{chat:{live_id:345542146}}}  message:{chat:{content:"安倍ちゃんと日本会議のお気に入りだったころもあったからな。早苗"  vpos:25093090  hashed_user_id:"a:TfX7f8hyc1VOjYb7"  modifier:{}  no:90549}}
@@ -140,6 +143,7 @@ func main() {
 		buffer: buf,
 	}
 
+/*
 	for data := range reader.Read() {
 		if len(data) <= 0 {
 			fmt.Println("null data")
@@ -157,8 +161,8 @@ func main() {
 		//fmt.Println(ce.GetNext())
 		//at:1723789941
 	}
+*/
 
-/*
 	for data := range reader.Read() {
 		if len(data) <= 0 {
 			fmt.Println("null data")
@@ -170,8 +174,40 @@ func main() {
 		if err := proto.Unmarshal(data, cm); err != nil {
 			log.Fatalln("Failed to parse ChunkedMessage:", err)
 		}
-		fmt.Println(cm)
-	}
+		//var e string
+		jdata, err := protojson.Marshal(cm)
+		if err != nil {
+			log.Fatalln("Failed to marshal proto message to JSON:", err)
+		}
+		var post interface{}
+		if err = json.Unmarshal(jdata, &post); err != nil {
+			log.Fatalln("Failed to unmarshal JSON:", err)
+		}
+		//str := string(jdata)
+		//if ma := regexp.MustCompile(`^{"([\w]+)":`).FindStringSubmatch(str); len(ma) > 0 {
+		//	e = ma[1]
+		//}
+		//fmt.Println(post)
+		//e = string(post["meta"])
+		fmt.Println(post[message])
+/*
+		e = post[0]
+		switch e {
+		case "signal":
+			//fmt.Println(str)
+		case "meta":
+			//fmt.Println(str)
+			//fmt.Println(cm.GetMeta())
+			//fmt.Println(cm.GetPayload())
+			//fmt.Println(cm.GetMessage())
+			//fmt.Println(cm.GetMessage().GetChat())
+			//fmt.Println(cm.GetState())
+			fmt.Println(string(jdata))
+		default:
+			//fmt.Println("Unknown entry: "+str)
+		}
+		//fmt.Println(cm)
 */
+	}
 
 }

@@ -1,4 +1,4 @@
-package message
+package niconico
 
 type BinaryStream struct {
 	buffer []byte
