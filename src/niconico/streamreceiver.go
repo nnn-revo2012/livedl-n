@@ -14,12 +14,13 @@ type StreamReceiver[T any] struct {
 	cancellationCtx    context.Context
 	cancelFunc         context.CancelFunc
 	buffer             *bytes.Buffer
-	processData        func([]byte, *T, *NicoHls) error
+	processData        func([]byte, *T) error
+	//hls                 *NicoHls
 	unexpectedDisconnect bool
 	mu                 sync.Mutex
 }
 
-func NewStreamReceiver[T any] (processData func([]byte, *T, *NicoHls) error) *StreamReceiver[T] {
+func NewStreamReceiver[T any] (processData func([]byte, *T) error) *StreamReceiver[T] {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return &StreamReceiver[T]{
@@ -27,13 +28,14 @@ func NewStreamReceiver[T any] (processData func([]byte, *T, *NicoHls) error) *St
 		cancelFunc:         cancel,
 		buffer:             new(bytes.Buffer),
 		processData:        processData,
+		//hls:                hls,
 		unexpectedDisconnect: false,
 	}
 }
 
-func (sr *StreamReceiver[T]) Receive (url string, headers map[string]string, msc *T, hls *NicoHls) error {
+func (sr *StreamReceiver[T]) Receive (url string, headers map[string]string, msc *T) error {
 	client := &http.Client{
-		Timeout: 30 * time.Second,
+		Timeout: 45 * time.Second,
 	}
 
 	req, err := http.NewRequestWithContext(sr.cancellationCtx, http.MethodGet, url, nil)
@@ -65,10 +67,11 @@ func (sr *StreamReceiver[T]) Receive (url string, headers map[string]string, msc
 			fmt.Println("Read operation was canceled due to a timeout or external cancellation.")
 			return nil
 		default:
-			//resp.Body.SetReadDeadline(time.Now().Add(30 * time.Second))
+			//resp.Body.SetReadDeadline(time.Now().Add(45 * time.Second))
 			n, err := resp.Body.Read(buffer)
 			if err != nil {
 				if err == io.EOF {
+					fmt.Println("Read EOF.")
 					return nil
 				}
 				sr.mu.Lock()
@@ -82,8 +85,7 @@ func (sr *StreamReceiver[T]) Receive (url string, headers map[string]string, msc
 				copy(dataChunk, buffer[:n])
 				sr.buffer.Write(dataChunk)
 
-				//err = sr.processData(dataChunk, stream)
-				err = sr.processData(dataChunk, msc, hls)
+				err = sr.processData(dataChunk, msc)
 				if err != nil {
 					return err
 				}

@@ -9,8 +9,9 @@ import (
     "io"
     "log"
     "os"
-    //"regexp"
+    "regexp"
     "encoding/json"
+    "strconv"
 
 	pb "github.com/nnn-revo2012/livedl/proto"
 
@@ -170,44 +171,67 @@ func main() {
 		}
 		fmt.Println(len(data))
 		//fmt.Println(string(data))
+		var e string
 		cm := &pb.ChunkedMessage{}
 		if err := proto.Unmarshal(data, cm); err != nil {
 			log.Fatalln("Failed to parse ChunkedMessage:", err)
 		}
-		//var e string
-		jdata, err := protojson.Marshal(cm)
-		if err != nil {
-			log.Fatalln("Failed to marshal proto message to JSON:", err)
-		}
-		var post interface{}
-		if err = json.Unmarshal(jdata, &post); err != nil {
-			log.Fatalln("Failed to unmarshal JSON:", err)
-		}
-		//str := string(jdata)
-		//if ma := regexp.MustCompile(`^{"([\w]+)":`).FindStringSubmatch(str); len(ma) > 0 {
-		//	e = ma[1]
+		//jsond, err := protojson.Marshal(cm)
+		//if err != nil {
+		//	log.Fatalln("Failed to marshal proto message to JSON:", err)
+		//	return
 		//}
-		//fmt.Println(post)
-		//e = string(post["meta"])
-		fmt.Println(post[message])
-/*
-		e = post[0]
+		if ma := regexp.MustCompile(`^([\w]+):`).FindStringSubmatch(cm.String()); len(ma) > 0 {
+			e = ma[1]
+		}
 		switch e {
 		case "signal":
-			//fmt.Println(str)
+			fmt.Println(cm)
 		case "meta":
-			//fmt.Println(str)
-			//fmt.Println(cm.GetMeta())
+			//fmt.Println(cm)
+			fmt.Println(cm.GetMeta())
 			//fmt.Println(cm.GetPayload())
 			//fmt.Println(cm.GetMessage())
-			//fmt.Println(cm.GetMessage().GetChat())
+			//fmt.Println(cm.GetMessage().GetChat().String())
+			//ma := re.FindStringSubmatch(cm.GetMessage().GetChat().String())
+			//if len(ma) > 0 {
+			//	fmt.Println(ma[1])
+			//}
 			//fmt.Println(cm.GetState())
-			fmt.Println(string(jdata))
+			//fmt.Println(string(jsond))
+			//at:{seconds:1726461419  nanos:316569000}
+			//dateとdate_usecの変換
+			var date, date_usec int64
+			if ma := regexp.MustCompile(`at:{seconds:([\d]+) nanos:([\d]+)}`).FindStringSubmatch(cm.String()); len(ma) > 0 {
+				date, _ = strconv.ParseInt(ma[1], 10, 64)
+				date_usec, _ = strconv.ParseInt(ma[2], 10, 64)
+			}
+			jsond, err := protojson.Marshal(cm.GetMessage().GetChat())
+			if err != nil {
+				log.Fatalln("Failed to marshal proto message to JSON:", err)
+				return
+			}
+			var attrMap map[string]interface{}
+			if err := json.Unmarshal(jsond, &attrMap); err != nil {
+				fmt.Println(err)
+			}
+			//fmt.Printf("%#v\n", attrMap)
+			var vpos int64
+			if d, ok := attrMap["vpos"].(float64); ok {
+				vpos = int64(d)
+			}
+			var thread string
+			if ma := regexp.MustCompile(`meta:{id:"([^"]*)"`).FindStringSubmatch(cm.String()); len(ma) > 0 {
+				thread = ma[1]
+			}
+			fmt.Println(thread)
+			fmt.Printf("date=\"%d\" date_usec=\"%d\" vpos=\"%d\"\n", date, date_usec, vpos)
+			//id, _ := (attrMap["meta"].(map[string]interface{}))["id"]
+			//fmt.Println(id)
 		default:
-			//fmt.Println("Unknown entry: "+str)
+			fmt.Printf("Unknown data: %v\n",cm)
 		}
 		//fmt.Println(cm)
-*/
 	}
 
 }

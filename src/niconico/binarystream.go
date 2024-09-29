@@ -69,7 +69,8 @@ func (bs *BinaryStream) Read() <- chan []byte {
 
 	go func() {
 		defer close(results)
-		offset := 0
+		//offset := 0
+		offset := bs.offset
 
 		for {
 			e := bs.decodeVarint(offset)

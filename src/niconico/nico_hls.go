@@ -33,6 +33,11 @@ import (
 	"github.com/nnn-revo2012/livedl/httpbase"
 	"math"
 	_ "net/http/pprof"
+
+	pb "github.com/nnn-revo2012/livedl/proto"
+
+    "google.golang.org/protobuf/encoding/protojson"
+    //"google.golang.org/protobuf/proto"
 )
 
 type OBJ = map[string]interface{}
@@ -315,30 +320,51 @@ func (hls *NicoHls) Close() {
 }
 
 // Comment method
+//func (hls *NicoHls) commentHandler(tag string, attr interface{}) (err error) {
+func (hls *NicoHls) commentHandler(tag string, entry *pb.ChunkedMessage) (err error) {
 
-func (hls *NicoHls) commentHandler(tag string, attr interface{}) (err error) {
-	attrMap, ok := attr.(map[string]interface{})
-	if !ok {
-		err = fmt.Errorf("[FIXME] commentHandler: not a map: %#v", attr)
+	var e string
+	var jsond []byte
+	s := entry.GetMessage().String()
+	//fmt.Println(s)
+	if ma := regexp.MustCompile(`^([\w]+):`).FindStringSubmatch(s); len(ma) > 0 {
+		e = ma[1]
+	}
+	switch e {
+	case "chat":
+		jsond, err = protojson.Marshal(entry.GetMessage().GetChat())
+		if err != nil {
+			return
+		}
+	default:
+		fmt.Printf("Unknown data: %s\n",e)
 		return
 	}
+
+	var attrMap map[string]interface{}
+	if err := json.Unmarshal(jsond, &attrMap); err != nil {
+		err = fmt.Errorf("[FIXME] commentHandler: not a map: %#v", jsond)
+		return err
+	}
 	//fmt.Printf("%#v\n", attrMap)
+
 	if tag == "chat" {
 		var vpos int64
 		if d, ok := attrMap["vpos"].(float64); ok {
 			vpos = int64(d)
 		}
-		var date int64
-		if d, ok := attrMap["date"].(float64); ok {
-			date = int64(d)
-		}
-		var date_usec int64
-		if d, ok := attrMap["date_usec"].(float64); ok {
-			date_usec = int64(d)
+		var date, date_usec int64
+		if ma2 := regexp.MustCompile(`at:{seconds:([\d]+) nanos:([\d]+)}`).FindStringSubmatch(entry.GetMeta().String()); len(ma2) > 0 {
+			date, _ = strconv.ParseInt(ma2[1], 10, 64)
+			date_usec, _ = strconv.ParseInt(ma2[2], 10, 64)
 		}
 		date2 := (date * 1000 * 1000) + date_usec
 		var user_id string
-		if s, ok := attrMap["user_id"].(string); ok {
+		if s, ok := attrMap["hashedUserId"].(string); ok {
+			user_id = s
+			attrMap["anonymity"] = 1
+			attrMap["mail"] = "184"
+		} else if s, ok := attrMap["rawUserId"].(string); ok {
 			user_id = s
 		}
 		var content string
@@ -348,12 +374,15 @@ func (hls *NicoHls) commentHandler(tag string, attr interface{}) (err error) {
 		calc_s := fmt.Sprintf("%d,%d,%d,%s,%s", vpos, date, date_usec, user_id, content)
 		hash := fmt.Sprintf("%x", sha3.Sum256([]byte(calc_s)))
 
-		var thread string
-		if d, ok := attrMap["thread"].(float64); ok {
-			thread = fmt.Sprintf("%.f", d)
-		} else if s, ok := attrMap["thread"].(string); ok {
-			thread = s
+		if _, ok := attrMap["accountStatus"].(string); ok {
+			attrMap["premium"] = 1
 		}
+		if ma := regexp.MustCompile(`meta:{id:"([^"]*)"`).FindStringSubmatch(entry.String()); len(ma) > 0 {
+			attrMap["thread"] = ma[1]
+		}
+
+		//fmt.Printf("date=\"%d\" date_usec=\"%d\" date2=\"%d\" vpos=\"%d\">%s</chat>\n",
+		//	date, date_usec, date2, vpos, attrMap["content"])
 
 		hls.dbInsert("comment", map[string]interface{}{
 			"vpos":      vpos,
@@ -362,15 +391,15 @@ func (hls *NicoHls) commentHandler(tag string, attr interface{}) (err error) {
 			"date2":     date2,
 			"no":        attrMap["no"],
 			"anonymity": attrMap["anonymity"],
-			"user_id":   attrMap["user_id"],
+			"user_id":   user_id,
 			"content":   attrMap["content"],
 			"mail":      attrMap["mail"],
 			"name":      attrMap["name"],
 			"premium":   attrMap["premium"],
-			"score":     attrMap["score"],
-			"thread":    thread,
-			"origin":    attrMap["origin"],
-			"locale":    attrMap["locale"],
+			"score":     0,
+			"thread":    attrMap["thread"],
+			"origin":    "",
+			"locale":    "",
 			"hash":      hash,
 		})
 	} else {
@@ -857,57 +886,137 @@ func (hls *NicoHls) startComment(messageServerUri, threadId, waybackkey string) 
 }
 */
 
-func (hls *NicoHls) ConnectSegmentServer(uri string, dummy bool) {
-	ssc := NewSegmentServerClient(uri, ProcessSegmentData , hls, NetworkError, false)
-
+func (hls *NicoHls) ConnectPackedServer(uri string, dummy bool) {
 	hls.startCGoroutine(func(sig <-chan struct{}) int {
 		var err error
 
-		// セグメントサーバーに接続
-		log.Println("connect segmentServer")
-		err = ssc.DoConnect()
-		if err != nil {
-			log.Println("segmentServer connect error:", err)
-			ssc.Disconnect()
-			return COMMENT_WS_ERROR
-		}
-		if hls.interrupted() {
-			ssc.Disconnect()
-			return OK
-		}
-		select {
-		case <-time.After(5 * time.Second):
-			//if conn != nil {
-			//	if err := writeJson(""); err != nil {
-			//		if !hls.interrupted() {
-			//			log.Println("comment send null:", err)
-			//		}
-			//		return COMMENT_WS_ERROR
-			//	}
-			//} else {
-			//	return OK
-			//}
-			if ssc.IsDisconnect() {
-				if !hls.interrupted() {
-					log.Println("segmentServer disconnect")
-					ssc.Disconnect()
+			segment := make(chan *pb.PackedSegment, 10)
+			psc := NewPackedSegmentClient(uri, PackedDisconnect , NetworkError, segment)
+			var packedSegment *pb.PackedSegment
+			defer func() {
+				close(segment)
+			}()
+			// パックドセグメントサーバーに接続
+			//for !hls.interrupted() {
+			if !hls.interrupted() {
+				hls.startCGoroutine(func(sig <-chan struct{}) int {
+					log.Println("connect packedServer")
+					err = psc.DoConnect()
+					if err != nil {
+						log.Println("packedServer connect error:", err)
+						psc.Disconnect()
+						return COMMENT_WS_ERROR
+					}
+					return OK
+				})
+//LoopPacked:
+				for !hls.interrupted() {
+					select {
+					case <-sig:
+						psc.Disconnect()
+						return GOT_SIGNAL
+					case <-time.After(30 * time.Second):
+						if !hls.interrupted() {
+							log.Println("packedServer disconnect")
+							//psc.Disconnect()
+							return COMMENT_WS_ERROR
+						}
+					case  packedSegment= <-segment:
+						//fmt.Println(packedSegment)
+						for _, message := range packedSegment.Messages {
+							//fmt.Println(message)
+							if err := hls.commentHandler("chat", message); err != nil {
+								log.Println("Comment save errer:")
+								return COMMENT_SAVE_ERROR
+							}
+/*
+							switch e {
+							case "next":
+								//next:{uri:"https://mpn.live.nicovideo.jp/data/backward/v4/BBwsNRzjKFhPyR6ypsXNO7lTUKPPNSv9eohugWIbH-eSd3Lp40xG1b6EYGjHj6dXv9PD_e8wZEzCxI3F6-8"}  snapshot:{uri:"https://mpn.live.nicovideo.jp/data/snapshot/v4/BBxtczpEeqxRwOZpK-ckEVWZu7TIoSJ-p8hLvGWxG-
+								fmt.Println(s)
+								if ma := regexp.MustCompile(`next:{uri:"([^"]+)"}`).FindStringSubmatch(s); len(ma) > 0 {
+									//fmt.Println("next uri: "+ma[1])
+									//psc.url = ma[1]
+									//breal LoopPacked
+								}
+								if ma := regexp.MustCompile(`{at:([\d]+)}`).FindStringSubmatch(s); len(ma) > 0 {
+								//fmt.Println(ma[1])
+								}
+							default:
+								fmt.Println("Unknown entry: "+s)
+							}
+*/
+						}
+					}
 				}
-				return COMMENT_WS_ERROR
-			} else {
-				//fmt.Println("return OK")
-				//return OK
 			}
-		case <-sig:
-			ssc.Disconnect()
-			return GOT_SIGNAL
-		}
-		return OK
+			return OK
 	})
+}
 
+func (hls *NicoHls) ConnectSegmentServer(uri string, dummy bool) {
+	hls.startCGoroutine(func(sig <-chan struct{}) int {
+		var err error
+
+			message := make(chan *pb.ChunkedMessage, 10)
+			ssc := NewSegmentServerClient(uri, ProcessSegmentData , NetworkError, false, message)
+			//msc := NewMessageServerClient(messageServerUri, ProcessMessageData, NetworkError, entry)
+			var chunkedMessage *pb.ChunkedMessage
+			defer func() {
+				close(message)
+			}()
+			// セグメントサーバーに接続
+			if !hls.interrupted() {
+				hls.startCGoroutine(func(sig <-chan struct{}) int {
+					log.Println("connect segmentServer")
+					err = ssc.DoConnect()
+					if err != nil {
+						log.Println("segmentServer connect error:", err)
+						//ssc.Disconnect()
+						return COMMENT_WS_ERROR
+					}
+					return OK
+				})
+//LoopSegment:
+				for !hls.interrupted() {
+					select {
+					case <-sig:
+						ssc.Disconnect()
+						return GOT_SIGNAL
+					case <-time.After(30 * time.Second):
+						if !hls.interrupted() {
+							log.Println("segmentServer disconnect")
+							ssc.Disconnect()
+							return COMMENT_WS_ERROR
+						}
+					case chunkedMessage = <-message:
+						//fmt.Println(chunkedMessage)
+						s := chunkedMessage.String()
+						//fmt.Println(s)
+						var e string
+						if ma := regexp.MustCompile(`^([\w]+):`).FindStringSubmatch(s); len(ma) > 0 {
+							e = ma[1]
+						}
+						switch e {
+						case "signal":
+							//fmt.Println(s)
+						case "meta":
+							//fmt.Println(s)
+							if err := hls.commentHandler("chat", chunkedMessage); err != nil {
+								log.Println("Comment save errer:")
+								return COMMENT_SAVE_ERROR
+							}
+						default:
+							fmt.Println("Unknown entry: "+s)
+						}
+					}
+				}
+			}
+			return OK
+	})
 }
 
 func (hls *NicoHls) startComment(messageServerUri, threadId, waybackkey string) {
-	msc := NewMessageServerClient(messageServerUri, ProcessMessageData , hls, NetworkError)
 
 	if (!hls.getCommentStarted()) && (!hls.commentDone) {
 		hls.setCommentStarted(true)
@@ -919,188 +1028,102 @@ func (hls *NicoHls) startComment(messageServerUri, threadId, waybackkey string) 
 
 			var err error
 
+			entry := make(chan *pb.ChunkedEntry, 5)
+			msc := NewMessageServerClient(messageServerUri, ProcessMessageData, NetworkError, entry)
+			var chunkedEntry *pb.ChunkedEntry
+			defer func() {
+				close(entry)
+			}()
 			// メッセージサーバーに接続
-			log.Println("connect messageServer")
-			if !hls.interrupted() {
-				err = msc.DoConnect()
-				if err != nil {
-					log.Println("messageServer connect error:", err)
-					msc.Disconnect()
-					return COMMENT_WS_ERROR
-				}
-			}
-
-			hls.startCGoroutine(func(sig <-chan struct{}) int {
-				for !hls.interrupted() {
+			//if hls.isTimeshift {
+			//	msc.SetNextStreamAt()
+			//}
+			for !hls.interrupted() {
+				hls.startCGoroutine(func(sig <-chan struct{}) int {
 					log.Println("connect messageServer at:", msc.GetNextStreamAt())
 					err = msc.DoConnect()
 					if err != nil {
 						log.Println("messageServer connect error:", err)
-						msc.Disconnect()
+						//msc.Disconnect()
 						return COMMENT_WS_ERROR
 					}
+					return OK
+				})
+LoopMessage:
+				for !hls.interrupted() {
 					select {
-					case <-time.After(30 * time.Second):
-						//if conn != nil {
-						//	if err := writeJson(""); err != nil {
-						//		if !hls.interrupted() {
-						//			log.Println("comment send null:", err)
-						//		}
-						//		return COMMENT_WS_ERROR
-						//	}
-						//} else {
-						//	return OK
-						//}
-						if msc.IsDisconnect() {
-							if !hls.interrupted() {
-								log.Println("messageServer disconnect")
-								msc.Disconnect()
-							}
-							return COMMENT_WS_ERROR
-						} else {
-							//fmt.Println("return OK")
-							//return OK
-						}
 					case <-sig:
 						msc.Disconnect()
 						return GOT_SIGNAL
-					}
-				}
-				return OK
-			})
-
-/*
-			var mtxChatTime sync.Mutex
-			var _chatCount int64
-			incChatCount := func() {
-				mtxChatTime.Lock()
-				defer mtxChatTime.Unlock()
-				_chatCount++
-			}
-			getChatCount := func() int64 {
-				mtxChatTime.Lock()
-				defer mtxChatTime.Unlock()
-				return _chatCount
-			}
-*/
-/*
-			if hls.isTimeshift {
-
-				hls.startCGoroutine(func(sig <-chan struct{}) int {
-					defer func() {
-						fmt.Println("Comment done.")
-					}()
-
-					var pre int64
-					var finishHint int
-					for !hls.interrupted() {
-						select {
-						case <-time.After(1 * time.Second):
-							c := getChatCount()
-							if c == 0 || c == pre {
-
-								_, when := hls.getTsCommentFromWhen()
-
-								//fmt.Printf("getTsCommentFromWhen %f %d\n", when, res_from)
-
-								err = writeJson([]OBJ{
-									OBJ{"ping": OBJ{"content": "rs:1"}},
-									OBJ{"ping": OBJ{"content": "ps:5"}},
-									OBJ{"thread": OBJ{
-										"fork":        0,
-										"nicoru":      0,
-										"res_from":    -1000,
-										"scores":      1,
-										"thread":      threadId,
-										"user_id":     hls.myUserId,
-										"version":     "20061206",
-										"waybackkey":  waybackkey,
-										"when":        when + 1,
-										"with_global": 1,
-									}},
-									OBJ{"ping": OBJ{"content": "pf:5"}},
-									OBJ{"ping": OBJ{"content": "rf:1"}},
-								})
-								if err != nil {
-									return NETWORK_ERROR
-								}
-
-							} else if c < pre+100 {
-								// 通常,1000カウント弱増えるが、少ししか増えない場合
-								finishHint++
-								if finishHint > 2 {
-									return COMMENT_DONE
-								}
-
-							} else {
-								finishHint = 0
+					case <-time.After(30 * time.Second):
+						if !hls.interrupted() {
+							log.Println("After 30Sec.")
+							if msc.IsDisconnect() {
+								log.Println("messageServer disconnect")
+								msc.Disconnect()
+								return COMMENT_WS_ERROR
 							}
-							pre = c
-
-						case <-sig:
-							return GOT_SIGNAL
 						}
-					}
-					return COMMENT_DONE
-				})
-
-			} else {
-				err = writeJson([]OBJ{
-					OBJ{"ping": OBJ{"content": "rs:0"}},
-					OBJ{"ping": OBJ{"content": "ps:0"}},
-					OBJ{"thread": OBJ{
-						"fork":        0,
-						"nicoru":      0,
-						"res_from":    -100,
-						"scores":      1,
-						"thread":      threadId,
-						"user_id":     hls.myUserId,
-						"version":     "20061206",
-						"with_global": 1,
-					}},
-					OBJ{"ping": OBJ{"content": "pf:0"}},
-					OBJ{"ping": OBJ{"content": "rf:0"}},
-				})
-				if err != nil {
-					if !hls.interrupted() {
-						log.Println("comment send first:", err)
-					}
-					return COMMENT_WS_ERROR
-				}
-			}
-
-			for !hls.interrupted() {
-				select {
-				case <-sig:
-					return GOT_SIGNAL
-				default:
-					var res interface{}
-					// Blocks here
-					if err = conn.ReadJSON(&res); err != nil {
-						return COMMENT_WS_ERROR
-					}
-
-					//fmt.Printf("debug %#v\n", res)
-
-					if data, ok := objs.Find(res, "chat"); ok {
-						if err := hls.commentHandler("chat", data); err != nil {
-							return COMMENT_SAVE_ERROR
+					case chunkedEntry = <-entry:
+						//fmt.Println(chunkedEntry)
+						s := chunkedEntry.String()
+						//fmt.Println(s)
+						var e string
+						if ma := regexp.MustCompile(`^([\w]+):`).FindStringSubmatch(s); len(ma) > 0 {
+							e = ma[1]
 						}
-						incChatCount()
-
-					} else if data, ok := objs.Find(res, "thread"); ok {
-						if err := hls.commentHandler("thread", data); err != nil {
-							return COMMENT_SAVE_ERROR
+						switch e {
+						case "next":
+							//next:{at:1723789941}
+							msc.mu.Lock()
+							if ma := regexp.MustCompile(`{at:([\d]+)}`).FindStringSubmatch(s); len(ma) > 0 {
+								//fmt.Println(ma[1])
+								if msc.nextStreamAt != "now" {
+									msc.beforeNextStreamAt = msc.nextStreamAt
+								}
+								msc.nextStreamAt = ma[1]
+							} else {
+								msc.mu.Unlock()
+								fmt.Println("entry next error: "+s)
+								return COMMENT_WS_ERROR
+							}
+							if msc.beforeNextStreamAt == msc.nextStreamAt {
+								msc.mu.Unlock()
+								msc.onNetworkError()
+								return COMMENT_WS_ERROR
+							}
+							msc.mu.Unlock()
+							//log.Println("nextAt: ", msc.nextStreamAt)
+							//log.Println("beforenextAt: ", msc.beforeNextStreamAt)
+							chunkedEntry = nil
+							break LoopMessage
+						case "backward":
+							//backward:{until:{seconds:1723789900}  segment:{uri:"https://mpn.live.nicovideo.jp/data/backward/v4/BBxEfXcPJuFVyZ97aTmoSSLC4mVIjNHLXX6cMHpoJSjj5Pqqp4odv_9O_2dYB6oiaO-SuaVX34RJTDToKZNwr5gBWks"}  snapshot:{uri:"https://mpn.live.nicovideo.jp/data/snapshot/v4/BByuTtvHa5vSWxnGEbDrPivYTDLuPGR2W1WXoiCRISeTQwgw-T27nbvwovofl3rKo3heRUkha5Mb42vsPvw4Qw"}}
+							if hls.isTimeshift {
+								if ma := regexp.MustCompile(`segment:{uri:"([^"]+)"}`).FindStringSubmatch(s); len(ma) > 0 {
+									//fmt.Println("backword uri: "+ma[1])
+									hls.ConnectPackedServer(ma[1], false)
+								}
+							}
+						case "previous":
+							//previous:{from:{seconds:1723789916}  until:{seconds:1723789932}  uri:"https://mpn.live.nicovideo.jp/data/segment/v4/BBzuEZXfmsvy4vfcCoBFmp0sjQJX13dqzTxyrxhNIw_2kLl1Jsc6tllJh93dITT5CKj7_U16-MvwtIt-DKIFmr2k"}
+							if ma := regexp.MustCompile(`uri:"([^"]+)"}`).FindStringSubmatch(s); len(ma) > 0 {
+								//fmt.Println("previous uri: "+ma[1])
+							}
+						case "segment":
+							//segment:{from:{seconds:1723789932}  until:{seconds:1723789948}  uri:"https://mpn.live.nicovideo.jp/data/segment/v4/BBwWCLcROYRA-MqsINQ8cjWLXsAqzVNfiMfFlT-UI6CxOQweAhdxlC305oHkdckSTggbyDbPgEzO-1BIbFrP-WpF"}
+							if !hls.isTimeshift {
+								if ma := regexp.MustCompile(`uri:"([^"]+)"}`).FindStringSubmatch(s); len(ma) > 0 {
+									//fmt.Println("segment uri: "+ma[1])
+									hls.ConnectSegmentServer(ma[1], false)
+								
+							}}
+						default:
+							fmt.Println("Unknown entry: "+s)
 						}
-
-					} else if _, ok := objs.Find(res, "ping"); ok {
-						// nop
-					} else {
-						fmt.Printf("[FIXME] Unknown Message: %#v\n", res)
 					}
 				}
 			}
-*/
 			return OK
 		})
 	}
@@ -1832,7 +1855,7 @@ func (hls *NicoHls) startMain() {
 					"protocol":    "webSocket",
 					"commentable": true,
 				},
-				"reconnect": true,
+				"reconnect": false, //2024/09/27 ここがtrueだとtype:messageServerが来なくなった
 			},
 		})
 		if err != nil {
@@ -1910,11 +1933,11 @@ func (hls *NicoHls) startMain() {
 				}
 
 			case "stream":
-				if sync_uri, ok := objs.FindString(res, "data", "syncUri"); ok {
-					if (!playlistStarted) && sync_uri != "" {
-						hls.streamSync(sync_uri)
-					}
-				}
+				//if sync_uri, ok := objs.FindString(res, "data", "syncUri"); ok {
+				//	if (!playlistStarted) && sync_uri != "" {
+				//		hls.streamSync(sync_uri)
+				//	}
+				//}
 				if uri, ok := objs.FindString(res, "data", "uri"); ok {
 					if (!playlistStarted) && uri != "" {
 						playlistStarted = true
@@ -1945,14 +1968,11 @@ func (hls *NicoHls) startMain() {
 				return MAIN_DISCONNECT
 
 			case "room":	//2024/08/05　新メッセージサーバーに変更された
-				break;
-
 			case "messageServer":	//2024/08/05　新メッセージサーバーに変更された
-				messageServerUri, ok := objs.FindString(res, "data", "viewUri", "uri")
-				if !ok {
-					break
+				messageServerUri, ok := objs.FindString(res, "data", "viewUri")
+				if ok {
+					hls.startComment(messageServerUri, "", "")
 				}
-				go hls.startComment(messageServerUri, "", "")
 
 			case "statistics":
 			case "permit":

@@ -1,14 +1,13 @@
 package niconico
 
 import (
-	"fmt"
+	//"fmt"
 	"log"
 	"sync"
-	"regexp"
+	//"regexp"
 
 	pb "github.com/nnn-revo2012/livedl/proto"
 
-    "google.golang.org/protobuf/encoding/protojson"
     "google.golang.org/protobuf/proto"
 )
 
@@ -18,15 +17,16 @@ type SegmentServerClient struct {
 	streamReceiver         *StreamReceiver[SegmentServerClient]
 	isDisconnect           bool
 	stream                 *BinaryStream
-	processData            func(*pb.ChunkedMessage, bool, *SegmentServerClient, *NicoHls) error
+	processData            func(*pb.ChunkedMessage, bool, *SegmentServerClient) error
 	isInitialCommentsReceiving bool
-	hls                    *NicoHls
+	//hls                    *NicoHls
 	onNetworkError         func() error
 	mu                     sync.Mutex // For thread-safety
+	message                chan<- *pb.ChunkedMessage
 }
 
 // NewSegmentServerClient コンストラクタ
-func NewSegmentServerClient(uri string, processData func(*pb.ChunkedMessage, bool, *SegmentServerClient, *NicoHls) error, hls *NicoHls, onNetworkError func() error, isInitialCommentsReceiving bool) *SegmentServerClient {
+func NewSegmentServerClient(uri string, processData func(*pb.ChunkedMessage, bool, *SegmentServerClient) error, onNetworkError func() error, isInitialCommentsReceiving bool, message chan<- *pb.ChunkedMessage) *SegmentServerClient {
 	headers := make(map[string]string)
 	client := &SegmentServerClient{
 		uri:                    uri,
@@ -35,16 +35,17 @@ func NewSegmentServerClient(uri string, processData func(*pb.ChunkedMessage, boo
 		stream:                 NewBinaryStream(),
 		processData:            processData,
 		isInitialCommentsReceiving: isInitialCommentsReceiving,
-		hls:                    hls,
+		//hls:                    hls,
 		onNetworkError:         onNetworkError,
 		isDisconnect:           false,
+		message:                message,
 	}
 	return client
 }
 
 func (s *SegmentServerClient) DoConnect() error {
 	//fmt.Println("s.DoConnect")
-	err := s.streamReceiver.Receive(s.uri, s.headers, s, s.hls)
+	err := s.streamReceiver.Receive(s.uri, s.headers, s)
 	if err != nil {
 		return err
 	}
@@ -82,7 +83,7 @@ func (s *SegmentServerClient) Disconnect() bool {
 	return true
 }
 
-func SegmentRawData(data []byte, s *SegmentServerClient, hls *NicoHls) error {
+func SegmentRawData(data []byte, s *SegmentServerClient) error {
 	if s.streamReceiver == nil {
 		return nil
 	}
@@ -100,7 +101,11 @@ func SegmentRawData(data []byte, s *SegmentServerClient, hls *NicoHls) error {
 			return err
 		}
 		//fmt.Println(entry)	//DEBUG
-		if err := s.processData(entry, s.isInitialCommentsReceiving, s, s.hls); err != nil {
+		if len(entry.String()) <= 0 {
+			return nil
+		}
+		s.message <- entry
+		if err := s.processData(entry, s.isInitialCommentsReceiving, s); err != nil {
 			return err
 		}
 	}
@@ -110,27 +115,7 @@ func SegmentRawData(data []byte, s *SegmentServerClient, hls *NicoHls) error {
 	return nil
 }
 
-func ProcessSegmentData(entry *pb.ChunkedMessage, inicomment bool, s *SegmentServerClient, hls *NicoHls) error {
-	//fmt.Println("ProcessSegmentData()")
-	str := entry.String()
-	if len(str) <= 0 {
-		return nil
-	}
-	//fmt.Println(str)
-	var e string
-	if ma := regexp.MustCompile(`^([\w]+):`).FindStringSubmatch(str); len(ma) > 0 {
-		e = ma[1]
-	}
-	switch e {
-	case "signal":
-		fmt.Println(str)
-	case "meta":
-		//fmt.Println(str)
-		fmt.Println(str)
-	default:
-		fmt.Println("Unknown entry: "+str)
-	}
-
+func ProcessSegmentData(entry *pb.ChunkedMessage, inicomment bool, s *SegmentServerClient) error {
 	return nil
 }
 
