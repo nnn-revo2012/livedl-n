@@ -315,7 +315,8 @@ func (hls *NicoHls) dbGetFromWhen() (res_from int, when float64) {
 		var endTime float64
 		hls.db.QueryRow(`SELECT v FROM kvs WHERE k = "endTime"`).Scan(&endTime)
 
-		when = endTime + 3600
+		//when = endTime + 3600
+		when = endTime + 10
 	} else {
 		when = float64(date2) / (1000 * 1000)
 	}

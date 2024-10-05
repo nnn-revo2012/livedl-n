@@ -324,20 +324,69 @@ func (hls *NicoHls) Close() {
 func (hls *NicoHls) commentHandler(tag string, entry *pb.ChunkedMessage) (err error) {
 
 	var e string
-	var jsond []byte
 	s := entry.GetMessage().String()
 	//fmt.Println(s)
 	if ma := regexp.MustCompile(`^([\w]+):`).FindStringSubmatch(s); len(ma) > 0 {
 		e = ma[1]
 	}
+
+	var jsond []byte
 	switch e {
 	case "chat":
 		jsond, err = protojson.Marshal(entry.GetMessage().GetChat())
 		if err != nil {
 			return
 		}
+	case "simple_notification":
+		jsond, err = protojson.Marshal(entry.GetMessage().GetSimpleNotification())
+		if err != nil {
+			return
+		}
+	case "gift":
+		jsond, err = protojson.Marshal(entry.GetMessage().GetGift())
+		if err != nil {
+			return
+		}
+		//fmt.Println(string(jsond))
+	case "nicoad":
+		jsond, err = protojson.Marshal(entry.GetMessage().GetNicoad())
+		if err != nil {
+			return
+		}
+		//fmt.Println(string(jsond))
+	case "game_update":
+		jsond, err = protojson.Marshal(entry.GetMessage().GetGameUpdate())
+		if err != nil {
+			return
+		}
+		fmt.Println(string(jsond))
+	case "tag_updated":
+		jsond, err = protojson.Marshal(entry.GetMessage().GetTagUpdated())
+		if err != nil {
+			return
+		}
+		fmt.Println(string(jsond))
+	case "moderator_updated":
+		jsond, err = protojson.Marshal(entry.GetMessage().GetModeratorUpdated())
+		if err != nil {
+			return
+		}
+		fmt.Println(string(jsond))
+	case "ssng_updated":
+		jsond, err = protojson.Marshal(entry.GetMessage().GetSsngUpdated())
+		if err != nil {
+			return
+		}
+		fmt.Println(string(jsond))
+	case "overflowed_chat":
+		err = fmt.Errorf("commentHandler: Recieved OverflowedChat\n")
+		return
+		//jsond, err = protojson.Marshal(entry.GetMessage().GetOverflowedChat())
+		//if err != nil {
+		//	return
+		//}
 	default:
-		fmt.Printf("Unknown data: %s\n",e)
+		fmt.Printf("Unknown data: %s\n",s)
 		return
 	}
 
@@ -354,29 +403,121 @@ func (hls *NicoHls) commentHandler(tag string, entry *pb.ChunkedMessage) (err er
 			vpos = int64(d)
 		}
 		var date, date_usec int64
-		if ma2 := regexp.MustCompile(`at:{seconds:([\d]+) nanos:([\d]+)}`).FindStringSubmatch(entry.GetMeta().String()); len(ma2) > 0 {
-			date, _ = strconv.ParseInt(ma2[1], 10, 64)
-			date_usec, _ = strconv.ParseInt(ma2[2], 10, 64)
+		if ma := regexp.MustCompile(`at:{seconds:([\d]+)`).FindStringSubmatch(entry.GetMeta().String()); len(ma) > 0 {
+			date, _ = strconv.ParseInt(ma[1], 10, 64)
+		}
+		if ma := regexp.MustCompile(`nanos:([\d]+)}`).FindStringSubmatch(entry.GetMeta().String()); len(ma) > 0 {
+			date_usec, _ = strconv.ParseInt(ma[1], 10, 64)
 		}
 		date2 := (date * 1000 * 1000) + date_usec
 		var user_id string
+		var mail []string
 		if s, ok := attrMap["hashedUserId"].(string); ok {
 			user_id = s
 			attrMap["anonymity"] = 1
-			attrMap["mail"] = "184"
+			mail = append(mail, "184")
 		} else if s, ok := attrMap["rawUserId"].(string); ok {
 			user_id = s
 		}
-		var content string
-		if s, ok := attrMap["content"].(string); ok {
-			content = s
-		}
-		calc_s := fmt.Sprintf("%d,%d,%d,%s,%s", vpos, date, date_usec, user_id, content)
-		hash := fmt.Sprintf("%x", sha3.Sum256([]byte(calc_s)))
-
 		if _, ok := attrMap["accountStatus"].(string); ok {
 			attrMap["premium"] = 1
 		}
+		var content string
+		switch e {
+		case "chat":
+			modMap := attrMap["modifier"].(map[string]interface{})
+			if _, ok := modMap["namedColor"].(string); ok {
+				mail = append(mail, modMap["namedColor"].(string))
+			} else if fcol, ok := modMap["fullColor"].(map[string]interface{}); ok {
+				//fullColor:{"r":34."b":44,"g":11} //may be
+				mail = append(mail, fmt.Sprintf("#%x%x%x",
+					fcol["r"].(int32),fcol["b"].(int32),fcol["g"].(int32)))
+			}
+			if _, ok := modMap["pos"].(string); ok {
+				mail = append(mail, modMap["pos"].(string))
+			}
+			if _, ok := modMap["size"].(string); ok {
+				mail = append(mail, modMap["size"].(string))
+			}
+			if _, ok := modMap["font"].(string); ok {
+				mail = append(mail, modMap["font"].(string))
+			}
+			if opacity, ok := modMap["opacity"].(string); ok {
+				if opacity == "translucent" {
+					mail = append(mail, opacity)
+					//normalアカウントで混雑時 or チャンネル非会員の場合
+					if attrMap["premium"] == 1 {
+						attrMap["premium"] = 25
+					} else {
+						attrMap["premium"] = 24
+					}
+				}
+			}
+			if mail != nil {
+				attrMap["mail"] = strings.Join(mail, " ")
+			}
+			if s, ok := attrMap["content"].(string); ok {
+				content = s
+			}
+		case "simple_notification":
+			attrMap["premium"] = 3
+			if s, ok := attrMap["emotion"].(string); ok {
+				content = "/emotion " + s
+			} else if s, ok := attrMap["programExtended"].(string); ok {
+				content = "/info 3 " + s	//3秒
+			} else if s, ok := attrMap["rankingIn"].(string); ok {
+				content = "/info 8 " + s	//8秒
+			} else if s, ok := attrMap["visited"].(string); ok {
+				content = "/info 10 " + s
+			} else if s, ok := attrMap["ichiba"].(string); ok {
+				content = "/info 10 " + s
+			} else {
+				content = "/info 10 " + string(jsond)
+				fmt.Printf("[FIXME]: %s\n",content)
+			}
+		case "gift":
+			attrMap["premium"] = 3
+			if ttt, ok := attrMap["itemId"].(string); ok {
+				content = "/gift " + ttt
+			}
+			if ttt, ok := attrMap["advertiserUserId"].(string); ok {
+				content += " " + ttt
+			} else {
+				content += " NULL"
+			}
+			if ttt, ok := attrMap["advertiserName"].(string); ok {
+				content += " \"" + ttt + "\""
+			}
+			if ttt, ok := attrMap["point"].(string); ok {
+				content += " " + ttt
+			}
+			if ttt, ok := attrMap["itemName"].(string); ok {
+				content += " \"\" \"" + ttt + "\""
+			}
+			if rank, ok := attrMap["contributionRank"].(float64); ok {
+				content += " " + strconv.Itoa(int(rank))
+			}
+			if len(content) <= 0 { 
+				content = "/gift " + string(jsond)
+				fmt.Printf("[FIXME]: %s\n",content)
+			}
+		case "nicoad":
+			attrMap["premium"] = 3
+			if ma := regexp.MustCompile(`^{"v[01]":{(.+)}}$`).FindStringSubmatch(string(jsond)); len(ma) > 0 {
+				content = "/nicoad {\"version:\":\"1\"," + ma[1] + "}"
+			} else {
+				content = "/nicoad " + string(jsond)
+				fmt.Printf("[FIXME]: %s\n",content)
+			}
+		default:
+			attrMap["premium"] = 3
+			content = "/??? " + string(jsond)
+			fmt.Printf("[FIXME]: %s\n",content)
+		}
+
+		calc_s := fmt.Sprintf("%d,%d,%d,%s,%s", vpos, date, date_usec, user_id, content)
+		hash := fmt.Sprintf("%x", sha3.Sum256([]byte(calc_s)))
+
 		if ma := regexp.MustCompile(`meta:{id:"([^"]*)"`).FindStringSubmatch(entry.String()); len(ma) > 0 {
 			attrMap["thread"] = ma[1]
 		}
@@ -392,7 +533,7 @@ func (hls *NicoHls) commentHandler(tag string, entry *pb.ChunkedMessage) (err er
 			"no":        attrMap["no"],
 			"anonymity": attrMap["anonymity"],
 			"user_id":   user_id,
-			"content":   attrMap["content"],
+			"content":   content,
 			"mail":      attrMap["mail"],
 			"name":      attrMap["name"],
 			"premium":   attrMap["premium"],
@@ -897,8 +1038,7 @@ func (hls *NicoHls) ConnectPackedServer(uri string, dummy bool) {
 				close(segment)
 			}()
 			// パックドセグメントサーバーに接続
-			//for !hls.interrupted() {
-			if !hls.interrupted() {
+			for !hls.interrupted() {
 				hls.startCGoroutine(func(sig <-chan struct{}) int {
 					log.Println("connect packedServer")
 					err = psc.DoConnect()
@@ -909,8 +1049,8 @@ func (hls *NicoHls) ConnectPackedServer(uri string, dummy bool) {
 					}
 					return OK
 				})
-//LoopPacked:
-				for !hls.interrupted() {
+LoopPacked:
+				//for !hls.interrupted() {
 					select {
 					case <-sig:
 						psc.Disconnect()
@@ -918,37 +1058,38 @@ func (hls *NicoHls) ConnectPackedServer(uri string, dummy bool) {
 					case <-time.After(30 * time.Second):
 						if !hls.interrupted() {
 							log.Println("packedServer disconnect")
-							//psc.Disconnect()
+							psc.Disconnect()
 							return COMMENT_WS_ERROR
 						}
 					case  packedSegment= <-segment:
 						//fmt.Println(packedSegment)
 						for _, message := range packedSegment.Messages {
-							//fmt.Println(message)
-							if err := hls.commentHandler("chat", message); err != nil {
-								log.Println("Comment save errer:")
-								return COMMENT_SAVE_ERROR
-							}
-/*
-							switch e {
-							case "next":
-								//next:{uri:"https://mpn.live.nicovideo.jp/data/backward/v4/BBwsNRzjKFhPyR6ypsXNO7lTUKPPNSv9eohugWIbH-eSd3Lp40xG1b6EYGjHj6dXv9PD_e8wZEzCxI3F6-8"}  snapshot:{uri:"https://mpn.live.nicovideo.jp/data/snapshot/v4/BBxtczpEeqxRwOZpK-ckEVWZu7TIoSJ-p8hLvGWxG-
-								fmt.Println(s)
-								if ma := regexp.MustCompile(`next:{uri:"([^"]+)"}`).FindStringSubmatch(s); len(ma) > 0 {
-									//fmt.Println("next uri: "+ma[1])
-									//psc.url = ma[1]
-									//breal LoopPacked
+							if !hls.interrupted() {
+								//fmt.Println(message)
+								if err := hls.commentHandler("chat", message); err != nil {
+									log.Println("Comment save errer:")
+									return COMMENT_SAVE_ERROR
 								}
-								if ma := regexp.MustCompile(`{at:([\d]+)}`).FindStringSubmatch(s); len(ma) > 0 {
-								//fmt.Println(ma[1])
-								}
-							default:
-								fmt.Println("Unknown entry: "+s)
+							} else {
+								psc.Disconnect()
+								return GOT_SIGNAL
 							}
-*/
+						}
+						if packedSegment.GetNext() != nil {
+							nexturi := packedSegment.GetNext().GetUri()
+							fmt.Println("next uri: "+nexturi)
+							if psc.GetNextUri() != nexturi {
+								psc.SetNextUri(nexturi)
+								time.Sleep(1 * time.Second)
+								break LoopPacked
+							} else {
+								fmt.Println("Comment done.")
+								psc.Disconnect()
+								return COMMENT_DONE
+							}
 						}
 					}
-				}
+				//}
 			}
 			return OK
 	})
@@ -1034,10 +1175,12 @@ func (hls *NicoHls) startComment(messageServerUri, threadId, waybackkey string) 
 			defer func() {
 				close(entry)
 			}()
+			if hls.isTimeshift {
+				_, when := hls.getTsCommentFromWhen()
+				whenint := int64(when)
+				msc.SetNextStreamAt(strconv.FormatInt(whenint, 10))
+			}
 			// メッセージサーバーに接続
-			//if hls.isTimeshift {
-			//	msc.SetNextStreamAt()
-			//}
 			for !hls.interrupted() {
 				hls.startCGoroutine(func(sig <-chan struct{}) int {
 					log.Println("connect messageServer at:", msc.GetNextStreamAt())
@@ -1096,7 +1239,9 @@ LoopMessage:
 							//log.Println("nextAt: ", msc.nextStreamAt)
 							//log.Println("beforenextAt: ", msc.beforeNextStreamAt)
 							chunkedEntry = nil
-							break LoopMessage
+							if !hls.isTimeshift {
+								break LoopMessage
+							}
 						case "backward":
 							//backward:{until:{seconds:1723789900}  segment:{uri:"https://mpn.live.nicovideo.jp/data/backward/v4/BBxEfXcPJuFVyZ97aTmoSSLC4mVIjNHLXX6cMHpoJSjj5Pqqp4odv_9O_2dYB6oiaO-SuaVX34RJTDToKZNwr5gBWks"}  snapshot:{uri:"https://mpn.live.nicovideo.jp/data/snapshot/v4/BByuTtvHa5vSWxnGEbDrPivYTDLuPGR2W1WXoiCRISeTQwgw-T27nbvwovofl3rKo3heRUkha5Mb42vsPvw4Qw"}}
 							if hls.isTimeshift {
@@ -1116,8 +1261,8 @@ LoopMessage:
 								if ma := regexp.MustCompile(`uri:"([^"]+)"}`).FindStringSubmatch(s); len(ma) > 0 {
 									//fmt.Println("segment uri: "+ma[1])
 									hls.ConnectSegmentServer(ma[1], false)
-								
-							}}
+								}
+							}
 						default:
 							fmt.Println("Unknown entry: "+s)
 						}
