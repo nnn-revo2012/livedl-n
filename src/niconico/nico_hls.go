@@ -319,12 +319,52 @@ func (hls *NicoHls) Close() {
 	}
 }
 
+func getModifier(attrmap map[string]interface{}) (mail []string, istranslucent bool) {
+	mail = nil
+	istranslucent = false
+
+	modMap := attrmap["modifier"].(map[string]interface{})
+	if modMap != nil {
+		if _, ok := modMap["namedColor"].(string); ok {
+			mail = append(mail, modMap["namedColor"].(string))
+		} else if fcol, ok := modMap["fullColor"].(map[string]interface{}); ok {
+			//fullColor:{"r":34."b":44,"g":11} //may be
+			mail = append(mail, fmt.Sprintf("#%x%x%x",
+				int32(fcol["r"].(float64)),
+				int32(fcol["b"].(float64)),
+				int32(fcol["g"].(float64))))
+		}
+		if _, ok := modMap["pos"].(string); ok {
+			mail = append(mail, modMap["pos"].(string))
+		}
+		if _, ok := modMap["size"].(string); ok {
+			mail = append(mail, modMap["size"].(string))
+		}
+		if _, ok := modMap["font"].(string); ok {
+			mail = append(mail, modMap["font"].(string))
+		}
+		if opacity, ok := modMap["opacity"].(string); ok {
+			if opacity == "Translucent" {
+				mail = append(mail, opacity)
+				istranslucent = true
+			}
+		}
+	}
+	return
+}
+
 // Comment method
 //func (hls *NicoHls) commentHandler(tag string, attr interface{}) (err error) {
 func (hls *NicoHls) commentHandler(tag string, entry *pb.ChunkedMessage) (err error) {
 
-	var e string
-	s := entry.GetMessage().String()
+	var e, s string
+	if entry.GetMessage() != nil {
+		s = entry.GetMessage().String()
+	} else if entry.GetState() != nil {
+		s = entry.GetState().String()
+	//} else if entry.GetSignal() != nil {
+	//	s = entry.GetSignal().String()
+	}
 	//fmt.Println(s)
 	if ma := regexp.MustCompile(`^([\w]+):`).FindStringSubmatch(s); len(ma) > 0 {
 		e = ma[1]
@@ -385,8 +425,54 @@ func (hls *NicoHls) commentHandler(tag string, entry *pb.ChunkedMessage) (err er
 		//if err != nil {
 		//	return
 		//}
+	//ここからstate
+	case "marquee":
+		jsond, err = protojson.Marshal(entry.GetState().GetMarquee())
+		if err != nil {
+			return
+		}
+		if string(jsond) == "{}" {
+			fmt.Println("marquee: clear "+string(jsond))
+			return
+		}
+		jsond, err = protojson.Marshal(entry.GetState().GetMarquee().GetDisplay().GetOperatorComment())
+		if err != nil {
+			return
+		}
+		//fmt.Println("marquee: "+string(jsond))
+	case "enquete":
+		jsond, err = protojson.Marshal(entry.GetState().GetEnquete())
+		if err != nil {
+			return
+		}
+		//fmt.Println("enquate: "+string(jsond))
+	case "statistics":
+		jsond, err = protojson.Marshal(entry.GetState().GetStatistics())
+		if err != nil {
+			return
+		}
+		fmt.Println("statistics: "+string(jsond))
+	case "trial_panel":
+		jsond, err = protojson.Marshal(entry.GetState().GetTrialPanel())
+		if err != nil {
+			return
+		}
+		//fmt.Println("trial_panel: "+string(jsond))
+		//fmt.Println("trial_panel: "+entry.GetState().String())
+	case "program_status":
+		jsond, err = protojson.Marshal(entry.GetState().GetProgramStatus())
+		if err != nil {
+			return
+		}
+		//fmt.Println("program_status: "+string(jsond))
+	case "move_order":
+		jsond, err = protojson.Marshal(entry.GetState().GetMoveOrder())
+		if err != nil {
+			return
+		}
+		//fmt.Println("move_order: "+string(jsond))
 	default:
-		fmt.Printf("Unknown data: %s\n",s)
+		fmt.Printf("Unknown data: %s\n",entry.String())
 		return
 	}
 
@@ -408,6 +494,7 @@ func (hls *NicoHls) commentHandler(tag string, entry *pb.ChunkedMessage) (err er
 		}
 		if ma := regexp.MustCompile(`nanos:([\d]+)}`).FindStringSubmatch(entry.GetMeta().String()); len(ma) > 0 {
 			date_usec, _ = strconv.ParseInt(ma[1], 10, 64)
+			date_usec /= 1000	//ナノ秒->マイクロ秒
 		}
 		date2 := (date * 1000 * 1000) + date_usec
 		var user_id string
@@ -425,32 +512,16 @@ func (hls *NicoHls) commentHandler(tag string, entry *pb.ChunkedMessage) (err er
 		var content string
 		switch e {
 		case "chat":
-			modMap := attrMap["modifier"].(map[string]interface{})
-			if _, ok := modMap["namedColor"].(string); ok {
-				mail = append(mail, modMap["namedColor"].(string))
-			} else if fcol, ok := modMap["fullColor"].(map[string]interface{}); ok {
-				//fullColor:{"r":34."b":44,"g":11} //may be
-				mail = append(mail, fmt.Sprintf("#%x%x%x",
-					fcol["r"].(int32),fcol["b"].(int32),fcol["g"].(int32)))
+			modifier, istranslucent := getModifier(attrMap)
+			if modifier != nil {
+				mail = append(mail, modifier...)
 			}
-			if _, ok := modMap["pos"].(string); ok {
-				mail = append(mail, modMap["pos"].(string))
-			}
-			if _, ok := modMap["size"].(string); ok {
-				mail = append(mail, modMap["size"].(string))
-			}
-			if _, ok := modMap["font"].(string); ok {
-				mail = append(mail, modMap["font"].(string))
-			}
-			if opacity, ok := modMap["opacity"].(string); ok {
-				if opacity == "translucent" {
-					mail = append(mail, opacity)
-					//normalアカウントで混雑時 or チャンネル非会員の場合
-					if attrMap["premium"] == 1 {
-						attrMap["premium"] = 25
-					} else {
-						attrMap["premium"] = 24
-					}
+			if istranslucent {
+				//normalアカウントで混雑時 or チャンネル非会員の場合
+				if attrMap["premium"] == 1 {
+					attrMap["premium"] = 25
+				} else {
+					attrMap["premium"] = 24
 				}
 			}
 			if mail != nil {
@@ -463,9 +534,15 @@ func (hls *NicoHls) commentHandler(tag string, entry *pb.ChunkedMessage) (err er
 			attrMap["premium"] = 3
 			if s, ok := attrMap["emotion"].(string); ok {
 				content = "/emotion " + s
+			} else if s, ok := attrMap["cruise"].(string); ok {
+				content = "/cruise \"" + s + "\""
+			} else if s, ok := attrMap["quote"].(string); ok {
+				content = "/quote \"" + s + "\""
 			} else if s, ok := attrMap["programExtended"].(string); ok {
 				content = "/info 3 " + s	//3秒
 			} else if s, ok := attrMap["rankingIn"].(string); ok {
+				content = "/info 8 " + s	//8秒
+			} else if s, ok := attrMap["rankingUpdated"].(string); ok {
 				content = "/info 8 " + s	//8秒
 			} else if s, ok := attrMap["visited"].(string); ok {
 				content = "/info 10 " + s
@@ -473,7 +550,7 @@ func (hls *NicoHls) commentHandler(tag string, entry *pb.ChunkedMessage) (err er
 				content = "/info 10 " + s
 			} else {
 				content = "/info 10 " + string(jsond)
-				fmt.Printf("[FIXME]: %s\n",content)
+				fmt.Printf("%s\n",content)
 			}
 		case "gift":
 			attrMap["premium"] = 3
@@ -503,11 +580,80 @@ func (hls *NicoHls) commentHandler(tag string, entry *pb.ChunkedMessage) (err er
 			}
 		case "nicoad":
 			attrMap["premium"] = 3
-			if ma := regexp.MustCompile(`^{"v[01]":{(.+)}}$`).FindStringSubmatch(string(jsond)); len(ma) > 0 {
+			if ma := regexp.MustCompile(`^{"v1":{(.+)}}$`).FindStringSubmatch(string(jsond)); len(ma) > 0 {
 				content = "/nicoad {\"version:\":\"1\"," + ma[1] + "}"
+			} else if ma := regexp.MustCompile(`^{"v0":{(.+)}}$`).FindStringSubmatch(string(jsond)); len(ma) > 0 {
+				content = "/nicoad {\"version:\":\"0\"," + ma[1] + "}"
 			} else {
 				content = "/nicoad " + string(jsond)
 				fmt.Printf("[FIXME]: %s\n",content)
+			}
+		case "marquee":
+			if attrMap["modifier"] != nil {
+				mail, _ := getModifier(attrMap)
+				if mail != nil {
+					attrMap["mail"] = strings.Join(mail, " ")
+				}
+			}
+			attrMap["premium"] = 3
+			if s, ok := attrMap["content"].(string); ok {
+				content = s
+			}
+			if s, ok := attrMap["link"].(string); ok {
+				content += "(\"" + s + "\")"
+			}
+		case "enquete":
+			attrMap["premium"] = 3
+			isResult := false
+			if len(entry.GetState().GetEnquete().String()) <= 0 {
+				content = "/vote stop"
+			} else {
+				if entry.GetState().GetEnquete().GetChoices() != nil {
+					choicesMap := attrMap["choices"].([]interface{})
+					if choicesMap[0].(map[string]interface{})["perMille"] != nil {
+						isResult = true
+						content = "/vote showresult per "
+					} else {
+						content = "/vote start \"" + attrMap["question"].(string) + "\" "
+					}
+					for _, item := range choicesMap {
+						descMap := item.(map[string]interface{})
+						if isResult {
+							if permille, ok := descMap["perMille"].(float64); ok {
+								content += fmt.Sprintf("%d ", int32(permille))
+							}
+						}else {
+							content += "\"" + descMap["description"].(string) + "\" "
+						}
+					}
+				}
+			}
+		case "statistics":
+			attrMap["premium"] = 3
+			content = "/statistics " + string(jsond)
+		case "trial_panel":
+			attrMap["premium"] = 3
+			if ttt, ok := attrMap["panel"].(string); ok {
+				content = "/trial_panel panel " + ttt
+			} else if ttt, ok := attrMap["unqualifiedUser"].(string); ok {
+				content = "/trial_panel unqualified_user " + ttt
+			} else {
+				content = "/trial_panel " + string(jsond)
+			}
+		case "program_status":
+			attrMap["premium"] = 3
+			if ttt, ok := attrMap["state"].(string); ok {
+				content = "/status " + ttt
+			} else {
+				content = "/program_status " + string(jsond)
+			}
+		case "move_order":
+			attrMap["premium"] = 3
+			if jumpMap, ok := attrMap["jump"].(map[string]interface{}); ok {
+				content = "/move_order " + jumpMap["message"].(string) +
+					"(\"https://www.live.nicovideo.jp/watch/" + jumpMap["content"].(string) + "\")"
+			} else {
+				content = "/move_order " + string(jsond)
 			}
 		default:
 			attrMap["premium"] = 3
@@ -815,7 +961,7 @@ func (hls *NicoHls) waitAllGoroutines() {
 	hls.waitMGoroutines()
 }
 
-func (hls *NicoHls) getTsCommentFromWhen() (res_from int, when float64) {
+func (hls *NicoHls) getTsCommentFromWhen() (when int64) {
 	return hls.dbGetFromWhen()
 }
 
@@ -1031,67 +1177,68 @@ func (hls *NicoHls) ConnectPackedServer(uri string, dummy bool) {
 	hls.startCGoroutine(func(sig <-chan struct{}) int {
 		var err error
 
-			segment := make(chan *pb.PackedSegment, 10)
-			psc := NewPackedSegmentClient(uri, PackedDisconnect , NetworkError, segment)
-			var packedSegment *pb.PackedSegment
-			defer func() {
-				close(segment)
-			}()
-			// パックドセグメントサーバーに接続
-			for !hls.interrupted() {
-				hls.startCGoroutine(func(sig <-chan struct{}) int {
-					log.Println("connect packedServer")
-					err = psc.DoConnect()
-					if err != nil {
-						log.Println("packedServer connect error:", err)
-						psc.Disconnect()
-						return COMMENT_WS_ERROR
-					}
-					return OK
-				})
+		segment := make(chan *pb.PackedSegment, 10)
+		psc := NewPackedSegmentClient(uri, PackedDisconnect , NetworkError, segment)
+		var packedSegment *pb.PackedSegment
+		defer func() {
+			close(segment)
+		}()
+		// パックドセグメントサーバーに接続
+		for !hls.interrupted() {
+			hls.startCGoroutine(func(sig <-chan struct{}) int {
+				log.Println("connect packedServer")
+				err = psc.DoConnect()
+				if err != nil {
+					log.Println("packedServer connect error:", err)
+					psc.Disconnect()
+					return COMMENT_WS_ERROR
+				}
+				return OK
+			})
 LoopPacked:
-				//for !hls.interrupted() {
-					select {
-					case <-sig:
+			select {
+			case <-sig:
+				psc.Disconnect()
+				return GOT_SIGNAL
+			case <-time.After(5 * time.Second):
+				if !hls.interrupted() {
+					log.Println("packedServer disconnect")
+					psc.Disconnect()
+					return COMMENT_WS_ERROR
+				}
+			case  packedSegment= <-segment:
+				//fmt.Println(packedSegment)
+				for _, message := range packedSegment.Messages {
+					if !hls.interrupted() {
+						//fmt.Println(message)
+						if err := hls.commentHandler("chat", message); err != nil {
+							log.Println("Comment save errer:")
+							return COMMENT_SAVE_ERROR
+						}
+					} else {
 						psc.Disconnect()
 						return GOT_SIGNAL
-					case <-time.After(30 * time.Second):
-						if !hls.interrupted() {
-							log.Println("packedServer disconnect")
-							psc.Disconnect()
-							return COMMENT_WS_ERROR
-						}
-					case  packedSegment= <-segment:
-						//fmt.Println(packedSegment)
-						for _, message := range packedSegment.Messages {
-							if !hls.interrupted() {
-								//fmt.Println(message)
-								if err := hls.commentHandler("chat", message); err != nil {
-									log.Println("Comment save errer:")
-									return COMMENT_SAVE_ERROR
-								}
-							} else {
-								psc.Disconnect()
-								return GOT_SIGNAL
-							}
-						}
-						if packedSegment.GetNext() != nil {
-							nexturi := packedSegment.GetNext().GetUri()
-							fmt.Println("next uri: "+nexturi)
-							if psc.GetNextUri() != nexturi {
-								psc.SetNextUri(nexturi)
-								time.Sleep(1 * time.Second)
-								break LoopPacked
-							} else {
-								fmt.Println("Comment done.")
-								psc.Disconnect()
-								return COMMENT_DONE
-							}
-						}
 					}
-				//}
+				}
+				if packedSegment.GetNext() != nil {
+					nexturi := packedSegment.GetNext().GetUri()
+					fmt.Println("next uri: "+nexturi)
+					if psc.GetNextUri() != nexturi {
+						psc.SetNextUri(nexturi)
+						time.Sleep(1 * time.Second)
+						break LoopPacked
+					} else {
+						fmt.Println("Comment done.")
+						psc.Disconnect()
+						return COMMENT_DONE
+					}
+				}
+				fmt.Println("Comment done.")
+				psc.Disconnect()
+				return COMMENT_DONE
 			}
-			return OK
+		}
+		return OK
 	})
 }
 
@@ -1176,9 +1323,8 @@ func (hls *NicoHls) startComment(messageServerUri, threadId, waybackkey string) 
 				close(entry)
 			}()
 			if hls.isTimeshift {
-				_, when := hls.getTsCommentFromWhen()
-				whenint := int64(when)
-				msc.SetNextStreamAt(strconv.FormatInt(whenint, 10))
+				when := hls.getTsCommentFromWhen()
+				msc.SetNextStreamAt(strconv.FormatInt(when, 10))
 			}
 			// メッセージサーバーに接続
 			for !hls.interrupted() {
@@ -1821,9 +1967,12 @@ func (hls *NicoHls) getPlaylist(argUri *url.URL) (is403, isEnd, isStop, is500 bo
 
 			fmt.Printf("BANDWIDTH: %d\n", maxBw)
 			hls.playlist.bandwidth = maxBw
-			//fastTimeshift
-			hls.playlist.uriMaster = argUri
-			hls.playlist.uri = uri
+			if hls.isTimeshift && hls.fastTimeshift {
+
+			} else {
+				hls.playlist.uriMaster = argUri
+				hls.playlist.uri = uri
+			}
 			return hls.getPlaylist(uri)
 
 		} else {
@@ -1893,8 +2042,14 @@ func (hls *NicoHls) startPlaylist(uri string) {
 			select {
 			case <-time.After(dur):
 				var uri *url.URL
-				//fastTimeshift
-				uri = hls.playlist.uri
+				if hls.isTimeshift && hls.fastTimeshift {
+					u := hls.playlist.uriTimeshiftMaster.String()
+					u = regexp.MustCompile(`&start=\d+(?:\.\d*)?`).ReplaceAllString(u, "")
+					u += fmt.Sprintf("&start=%f", hls.timeshiftStart)
+					uri, _ = url.Parse(u)
+				} else {
+					uri = hls.playlist.uri
+				}
 
 				//fmt.Println(uri)
 
@@ -2631,6 +2786,7 @@ func NicoRecHls(opt options.Option) (done, playlistEnd, notLogin, reserved bool,
 		"mediaServerType":   []string{"program", "mediaServerType"},     // "DMC"
 		"nicoliveProgramId": []string{"program", "nicoliveProgramId"},   // "lv\d+"
 		"openTime":          []string{"program", "openTime"},            // integer
+		"vposBaseTime":      []string{"program", "vposBaseTime"},        // integer
 		"providerType":      []string{"program", "providerType"},        // "community"
 		"status":            []string{"program", "status"},              //
 		"userName":          []string{"program", "supplier", "name"},    // ユーザ名

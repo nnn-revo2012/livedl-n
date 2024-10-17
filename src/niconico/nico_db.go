@@ -299,37 +299,35 @@ func (hls *NicoHls) dbReplace(table string, data map[string]interface{}) {
 }
 
 // timeshift
-func (hls *NicoHls) dbGetFromWhen() (res_from int, when float64) {
+func (hls *NicoHls) dbGetFromWhen() (when int64) {
 	hls.dbMtx.Lock()
 	defer hls.dbMtx.Unlock()
 	var date2 int64
-	var no int
 
-	hls.db.QueryRow("SELECT date2, no FROM comment ORDER BY date2 ASC LIMIT 1").Scan(&date2, &no)
-	res_from = no
-	if res_from <= 0 {
-		res_from = 1
-	}
-
+	hls.db.QueryRow("SELECT date2, FROM comment ORDER BY date2 ASC LIMIT 1").Scan(&date2)
 	if date2 == 0 {
 		var endTime float64
 		hls.db.QueryRow(`SELECT v FROM kvs WHERE k = "endTime"`).Scan(&endTime)
-
-		//when = endTime + 3600
-		when = endTime + 10
+		when = int64(endTime) + 360
+		dt := time.Now()
+		unix := dt.Unix()
+		if unix < when {
+			when = unix
+		}
 	} else {
-		when = float64(date2) / (1000 * 1000)
+		when = int64(date2) / (1000 * 1000) + 1
 	}
 
 	return
 }
 
-func dbadjustVpos(opentime, offset, date, vpos int64, providerType string) (ret int64) {
+//新コメントサーバー用
+func dbadjustVpos(opentime, vposbasetime, offset, date, vpos, premium int64) (ret int64) {
 	ret = vpos
-	if providerType != "official" {
+	if premium == 3 {
 		ret = (date - opentime) * 100 - offset
 	} else {
-		ret = vpos - offset
+		ret = vpos + ((vposbasetime - opentime) * 100) - offset
 	}
 	return ret
 }
@@ -340,6 +338,10 @@ func dbGetCommentRevision(db *sql.DB) (commentRevision int) {
 	db.QueryRow(`SELECT COUNT(name) FROM pragma_table_info('comment') WHERE name = 'name'`).Scan(&nameCount)
 	if nameCount > 0 {
 		commentRevision = 1
+	}
+	db.QueryRow(`SELECT COUNT(k) FROM 'kvs' WHERE k = 'vposBaseTime'`).Scan(&nameCount)
+	if nameCount > 0 {
+		commentRevision = 2
 	}
 	return
 }
@@ -356,35 +358,41 @@ func WriteComment(db *sql.DB, fileName string, skipHb, adjustVpos bool, seqnoSta
 
 	commentRevision :=  dbGetCommentRevision(db)
 	fmt.Println("commentRevision: ", commentRevision)
+	if commentRevision < 2 {
+		fmt.Println("DBfile is old. Can't output comments this program.")
+		return
+	}
 
-	//adjustVposの場合はkvsテーブルから読み込み
-	var openTime int64
+	//kvsテーブルから読み込み
+	var openTime, vposBaseTime int64
 	var providerType string
 	var offset int64
 	kvs := DbKVGet(db)
-	if adjustVpos == true {
-		var t float64
-		var sts string
-		var serverTime int64
-		t = kvs["serverTime"].(float64)
-		serverTime = int64(t)
-		t = kvs["openTime"].(float64)
-		openTime = int64(t)
-		sts = kvs["status"].(string)
-		if sts == "ENDED" {
-			offset = seqnoStart * 500 //timeshift
-		} else {
-			offset = (serverTime/10) - (openTime*100) + (seqOffset*150) //on_air
-		}
-		providerType = kvs["providerType"].(string)
-		//fmt.Println("serverTime: ", serverTime)
-		fmt.Println("status: ", sts)
+
+	var t float64
+	var sts string
+	var serverTime int64
+	t = kvs["serverTime"].(float64)
+	serverTime = int64(t)
+	t = kvs["openTime"].(float64)
+	openTime = int64(t)
+	t = kvs["vposBaseTime"].(float64)
+	vposBaseTime = int64(t)
+	sts = kvs["status"].(string)
+	if sts == "ENDED" {
+		offset = seqnoStart * 500 //timeshift
+	} else {
+		offset = (serverTime/10) - (openTime*100) + (seqOffset*150) //on_air
 	}
+	providerType = kvs["providerType"].(string)
+	//fmt.Println("serverTime: ", serverTime)
+	fmt.Println("status: ", sts)
 
 	fmt.Println("adjustVpos: ", adjustVpos)
 	fmt.Println("providerType: ", providerType)
-	//fmt.Println("openTime: ", openTime)
-	//fmt.Println("offset: ", offset)
+	fmt.Println("openTime: ", openTime)
+	fmt.Println("vposBaseTime: ", vposBaseTime)
+	fmt.Println("offset: ", offset)
 
 	rows, err := db.Query(fSelComment(commentRevision))
 	if err != nil {
@@ -455,12 +463,17 @@ func WriteComment(db *sql.DB, fileName string, skipHb, adjustVpos bool, seqnoSta
 			continue
 		}
 
-		// adjustVposの場合はvpos再計算
-		// vposが-1000(-10秒)より小さい場合は出力しない
+		// vpos計算
 		if adjustVpos == true {
-			vpos = dbadjustVpos(openTime, offset, date, vpos, providerType)
+			vpos = dbadjustVpos(openTime, vposBaseTime, offset, date, vpos, premium)
+			// vposが-1000(-10秒)より小さい場合は出力しない
 			if vpos <= -1000 {
 				continue
+			}
+		} else {
+			//premium=3のみvpos計算
+			if premium == 3 {
+				vpos = dbadjustVpos(openTime, vposBaseTime, 0, date, vpos, premium)
 			}
 		}
 
