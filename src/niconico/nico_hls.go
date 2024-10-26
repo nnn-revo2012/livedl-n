@@ -1173,12 +1173,12 @@ func (hls *NicoHls) startComment(messageServerUri, threadId, waybackkey string) 
 }
 */
 
-func (hls *NicoHls) ConnectPackedServer(uri string, dummy bool) {
+func (hls *NicoHls) ConnectPackedServer(uri string, isgetall bool) {
 	hls.startCGoroutine(func(sig <-chan struct{}) int {
 		var err error
 
-		segment := make(chan *pb.PackedSegment, 10)
-		psc := NewPackedSegmentClient(uri, PackedDisconnect , NetworkError, segment)
+		segment := make(chan *pb.PackedSegment, 3)
+		psc := NewPackedSegment(uri, segment)
 		var packedSegment *pb.PackedSegment
 		defer func() {
 			close(segment)
@@ -1187,7 +1187,7 @@ func (hls *NicoHls) ConnectPackedServer(uri string, dummy bool) {
 		for !hls.interrupted() {
 			hls.startCGoroutine(func(sig <-chan struct{}) int {
 				log.Println("connect packedServer")
-				err = psc.DoConnect()
+				err = psc.Connect()
 				if err != nil {
 					log.Println("packedServer connect error:", err)
 					psc.Disconnect()
@@ -1229,12 +1229,10 @@ LoopPacked:
 						break LoopPacked
 					} else {
 						fmt.Println("Comment done.")
-						psc.Disconnect()
 						return COMMENT_DONE
 					}
 				}
 				fmt.Println("Comment done.")
-				psc.Disconnect()
 				return COMMENT_DONE
 			}
 		}
@@ -1242,13 +1240,13 @@ LoopPacked:
 	})
 }
 
-func (hls *NicoHls) ConnectSegmentServer(uri string, dummy bool) {
+/*
+func (hls *NicoHls) ConnectSegmentServer(uri string) {
 	hls.startCGoroutine(func(sig <-chan struct{}) int {
 		var err error
 
-			message := make(chan *pb.ChunkedMessage, 10)
-			ssc := NewSegmentServerClient(uri, ProcessSegmentData , NetworkError, false, message)
-			//msc := NewMessageServerClient(messageServerUri, ProcessMessageData, NetworkError, entry)
+			message := make(chan *pb.ChunkedMessage, 3)
+			ssc := NewSegmentServer(uri, message)
 			var chunkedMessage *pb.ChunkedMessage
 			defer func() {
 				close(message)
@@ -1260,7 +1258,7 @@ func (hls *NicoHls) ConnectSegmentServer(uri string, dummy bool) {
 					err = ssc.DoConnect()
 					if err != nil {
 						log.Println("segmentServer connect error:", err)
-						//ssc.Disconnect()
+						ssc.Disconnect()
 						return COMMENT_WS_ERROR
 					}
 					return OK
@@ -1271,7 +1269,7 @@ func (hls *NicoHls) ConnectSegmentServer(uri string, dummy bool) {
 					case <-sig:
 						ssc.Disconnect()
 						return GOT_SIGNAL
-					case <-time.After(30 * time.Second):
+					case <-time.After(5 * time.Second):
 						if !hls.interrupted() {
 							log.Println("segmentServer disconnect")
 							ssc.Disconnect()
@@ -1303,6 +1301,7 @@ func (hls *NicoHls) ConnectSegmentServer(uri string, dummy bool) {
 			return OK
 	})
 }
+*/
 
 func (hls *NicoHls) startComment(messageServerUri, threadId, waybackkey string) {
 
@@ -1316,8 +1315,8 @@ func (hls *NicoHls) startComment(messageServerUri, threadId, waybackkey string) 
 
 			var err error
 
-			entry := make(chan *pb.ChunkedEntry, 5)
-			msc := NewMessageServerClient(messageServerUri, ProcessMessageData, NetworkError, entry)
+			entry := make(chan *pb.ChunkedEntry, 3)
+			msc := NewMessageServer(messageServerUri, entry)
 			var chunkedEntry *pb.ChunkedEntry
 			defer func() {
 				close(entry)
@@ -1330,10 +1329,10 @@ func (hls *NicoHls) startComment(messageServerUri, threadId, waybackkey string) 
 			for !hls.interrupted() {
 				hls.startCGoroutine(func(sig <-chan struct{}) int {
 					log.Println("connect messageServer at:", msc.GetNextStreamAt())
-					err = msc.DoConnect()
+					err = msc.Connect()
 					if err != nil {
 						log.Println("messageServer connect error:", err)
-						//msc.Disconnect()
+						msc.Disconnect()
 						return COMMENT_WS_ERROR
 					}
 					return OK
@@ -1349,7 +1348,6 @@ LoopMessage:
 							log.Println("After 30Sec.")
 							if msc.IsDisconnect() {
 								log.Println("messageServer disconnect")
-								msc.Disconnect()
 								return COMMENT_WS_ERROR
 							}
 						}
@@ -1378,7 +1376,7 @@ LoopMessage:
 							}
 							if msc.beforeNextStreamAt == msc.nextStreamAt {
 								msc.mu.Unlock()
-								msc.onNetworkError()
+								fmt.Println("messageServer Network error")
 								return COMMENT_WS_ERROR
 							}
 							msc.mu.Unlock()
@@ -1392,7 +1390,7 @@ LoopMessage:
 							//backward:{until:{seconds:1723789900}  segment:{uri:"https://mpn.live.nicovideo.jp/data/backward/v4/BBxEfXcPJuFVyZ97aTmoSSLC4mVIjNHLXX6cMHpoJSjj5Pqqp4odv_9O_2dYB6oiaO-SuaVX34RJTDToKZNwr5gBWks"}  snapshot:{uri:"https://mpn.live.nicovideo.jp/data/snapshot/v4/BByuTtvHa5vSWxnGEbDrPivYTDLuPGR2W1WXoiCRISeTQwgw-T27nbvwovofl3rKo3heRUkha5Mb42vsPvw4Qw"}}
 							if hls.isTimeshift {
 								if ma := regexp.MustCompile(`segment:{uri:"([^"]+)"}`).FindStringSubmatch(s); len(ma) > 0 {
-									//fmt.Println("backword uri: "+ma[1])
+									fmt.Println("backword uri: "+ma[1])
 									hls.ConnectPackedServer(ma[1], false)
 								}
 							}
@@ -1406,7 +1404,7 @@ LoopMessage:
 							if !hls.isTimeshift {
 								if ma := regexp.MustCompile(`uri:"([^"]+)"}`).FindStringSubmatch(s); len(ma) > 0 {
 									//fmt.Println("segment uri: "+ma[1])
-									hls.ConnectSegmentServer(ma[1], false)
+									//hls.ConnectSegmentServer(ma[1], false)
 								}
 							}
 						default:
