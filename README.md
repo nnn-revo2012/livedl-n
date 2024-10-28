@@ -56,3 +56,22 @@ go build:
     ```
     docker run --rm -it -v "$(pwd):/livedl" livedl "https://live.nicovideo.jp/watch/..."
     ```
+
+## 参考にしたサイト  
+### 新コメントサーバー関連  
+
+- nicolive-comment-protobuf  
+  https://github.com/n-air-app/nicolive-comment-protobuf  
+
+- 帰ってきたニコニコのニコ生コメントサーバーからのコメント取得備忘録  
+  https://qiita.com/DaisukeDaisuke/items/3938f245caec1e99d51e  
+
+- NDGRClient  
+  https://github.com/tsukumijima/NDGRClient  
+
+- protobuf  
+  https://github.com/protocolbuffers/protobuf/releases  
+
+- protobuf-go  
+  https://github.com/protocolbuffers/protobuf-go  
+

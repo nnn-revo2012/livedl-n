@@ -1,4 +1,4 @@
-livedl-rc20241017 (20241017.55-windows-amd64)
+livedl-rc20241027 (20241027.55-windows-amd64)
 Usage:
 livedl [COMMAND] options... [--] FILE
 
@@ -103,6 +103,13 @@ FILE:
 
 
 ﻿更新履歴
+20241027.55 (rc20241027)
+- ニコ生新仕様(2024/08/05)対応
+  - タイムシフトのみ対応(リアルタイム録画はコメント取得しません)
+  - 新コメントサーバーアクセス関数作成
+    nico_stream.go、nico_message.go、nico_packed.go
+    (以前のものはライセンスの違いにより削除)
+
 20241017.55 (rc20241017)
 - ニコ生新仕様(2024/08/05)対応
   - 'getProps: page not found'と表示され録画しないのを修正
