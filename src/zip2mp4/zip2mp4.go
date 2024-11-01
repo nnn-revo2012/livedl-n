@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"io/ioutil"
+	"net/url"
 	"github.com/nnn-revo2012/livedl/files"
 	"github.com/nnn-revo2012/livedl/log4gui"
 
@@ -446,7 +447,7 @@ func ExtractChunks(fileName string, skipHb, adjustVpos bool, seqnoStart, seqnoEn
 		fmt.Println("sqlite3 file not found:")
 		return
 	}
-	db, err := sql.Open("sqlite3", "file:"+fileName+"?mode=ro&immutable=1")
+	db, err := sql.Open("sqlite3", "file:"+url.PathEscape(fileName)+"?mode=ro&immutable=1")
 	if err != nil {
 		return
 	}
@@ -521,7 +522,7 @@ func ConvertDB(fileName, ext string, skipHb, adjustVpos, forceConcat bool, seqno
 		fmt.Println("sqlite3 file not found:")
 		return
 	}
-	db, err := sql.Open("sqlite3", "file:"+fileName+"?mode=ro&immutable=1")
+	db, err := sql.Open("sqlite3", "file:"+url.PathEscape(fileName)+"?mode=ro&immutable=1")
 	if err != nil {
 		return
 	}
@@ -763,7 +764,7 @@ func YtComment(fileName string, ytemoji bool) (done bool, err error) {
 		fmt.Println("sqlite3 file not found:")
 		return
 	}
-	db, err := sql.Open("sqlite3", "file:"+fileName+"?mode=ro&immutable=1")
+	db, err := sql.Open("sqlite3", "file:"+url.PathEscape(fileName)+"?mode=ro&immutable=1")
 	if err != nil {
 		return
 	}

@@ -329,10 +329,17 @@ func getModifier(attrmap map[string]interface{}) (mail []string, istranslucent b
 			mail = append(mail, modMap["namedColor"].(string))
 		} else if fcol, ok := modMap["fullColor"].(map[string]interface{}); ok {
 			//fullColor:{"r":34."b":44,"g":11} //may be
-			mail = append(mail, fmt.Sprintf("#%x%x%x",
-				int32(fcol["r"].(float64)),
-				int32(fcol["b"].(float64)),
-				int32(fcol["g"].(float64))))
+			var red, blue, green int32 = 0, 0, 0
+			if _, ok := fcol["r"].(float64); ok {
+				red = int32(fcol["r"].(float64))
+ 			}
+			if _, ok := fcol["g"].(float64); ok {
+				green = int32(fcol["g"].(float64))
+ 			}
+			if _, ok := fcol["b"].(float64); ok {
+				blue = int32(fcol["b"].(float64))
+ 			}
+			mail = append(mail, fmt.Sprintf("#%02x%02x%02x", red, green, blue))
 		}
 		if _, ok := modMap["pos"].(string); ok {
 			mail = append(mail, modMap["pos"].(string))
@@ -432,7 +439,7 @@ func (hls *NicoHls) commentHandler(tag string, entry *pb.ChunkedMessage) (err er
 			return
 		}
 		if string(jsond) == "{}" {
-			fmt.Println("marquee: clear "+string(jsond))
+			//fmt.Println("marquee: clear "+string(jsond))
 			return
 		}
 		jsond, err = protojson.Marshal(entry.GetState().GetMarquee().GetDisplay().GetOperatorComment())
@@ -1222,10 +1229,10 @@ LoopPacked:
 				}
 				if packedSegment.GetNext() != nil {
 					nexturi := packedSegment.GetNext().GetUri()
-					fmt.Println("next uri: "+nexturi)
+					//fmt.Println("next uri: "+nexturi)
 					if psc.GetNextUri() != nexturi {
 						psc.SetNextUri(nexturi)
-						time.Sleep(1 * time.Second)
+						time.Sleep(500 * time.Millisecond)
 						break LoopPacked
 					} else {
 						fmt.Println("Comment done.")
@@ -1385,12 +1392,14 @@ LoopMessage:
 							chunkedEntry = nil
 							if !hls.isTimeshift {
 								break LoopMessage
+							} else {
+								return OK
 							}
 						case "backward":
 							//backward:{until:{seconds:1723789900}  segment:{uri:"https://mpn.live.nicovideo.jp/data/backward/v4/BBxEfXcPJuFVyZ97aTmoSSLC4mVIjNHLXX6cMHpoJSjj5Pqqp4odv_9O_2dYB6oiaO-SuaVX34RJTDToKZNwr5gBWks"}  snapshot:{uri:"https://mpn.live.nicovideo.jp/data/snapshot/v4/BByuTtvHa5vSWxnGEbDrPivYTDLuPGR2W1WXoiCRISeTQwgw-T27nbvwovofl3rKo3heRUkha5Mb42vsPvw4Qw"}}
 							if hls.isTimeshift {
 								if ma := regexp.MustCompile(`segment:{uri:"([^"]+)"}`).FindStringSubmatch(s); len(ma) > 0 {
-									fmt.Println("backword uri: "+ma[1])
+									//fmt.Println("backword uri: "+ma[1])
 									hls.ConnectPackedServer(ma[1], false)
 								}
 							}

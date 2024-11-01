@@ -91,7 +91,7 @@ func (msc *MessageServer) Connect() error {
 			n, err := resp.Body.Read(buffer)
 			if err != nil {
 				if err == io.EOF {
-					fmt.Println("Read EOF.")
+					//fmt.Println("Read EOF.")
 					return nil
 				}
 				msc.mu.Lock()
@@ -160,7 +160,7 @@ func (msc *MessageServer) SetNextStreamAt(nextat string) error {
 }
 
 func (msc *MessageServer) messageData(data []byte) error {
-	log.Printf("message received %d bytes.\n", len(data))
+	//log.Printf("message received %d bytes.\n", len(data))
 
 	msc.stream.AddBuffer(data)
 

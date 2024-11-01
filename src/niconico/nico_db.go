@@ -5,6 +5,7 @@ import (
 	"time"
 	"os"
 	"log"
+	"net/url"
 	"strings"
 	"database/sql"
 
@@ -496,18 +497,21 @@ func WriteComment(db *sql.DB, fileName string, skipHb, adjustVpos bool, seqnoSta
 			mail = strings.Replace(mail, `"`, "&quot;", -1)
 			mail = strings.Replace(mail, "&", "&amp;", -1)
 			mail = strings.Replace(mail, "<", "&lt;", -1)
+			mail = strings.Replace(mail, ">", "&gt;", -1)
 			line += fmt.Sprintf(` mail="%s"`, mail)
 		}
 		if name != "" {
 			name = strings.Replace(name, `"`, "&quot;", -1)
 			name = strings.Replace(name, "&", "&amp;", -1)
 			name = strings.Replace(name, "<", "&lt;", -1)
+			name = strings.Replace(name, ">", "&gt;", -1)
 			line += fmt.Sprintf(` name="%s"`, name)
 		}
 		if origin != "" {
 			origin = strings.Replace(origin, `"`, "&quot;", -1)
 			origin = strings.Replace(origin, "&", "&amp;", -1)
 			origin = strings.Replace(origin, "<", "&lt;", -1)
+			origin = strings.Replace(origin, ">", "&gt;", -1)
 			line += fmt.Sprintf(` origin="%s"`, origin)
 		}
 		if premium != 0 {
@@ -520,11 +524,19 @@ func WriteComment(db *sql.DB, fileName string, skipHb, adjustVpos bool, seqnoSta
 			locale = strings.Replace(locale, `"`, "&quot;", -1)
 			locale = strings.Replace(locale, "&", "&amp;", -1)
 			locale = strings.Replace(locale, "<", "&lt;", -1)
+			locale = strings.Replace(locale, ">", "&gt;", -1)
 			line += fmt.Sprintf(` locale="%s"`, locale)
 		}
 		line += ">"
-		content = strings.Replace(content, "&", "&amp;", -1)
-		content = strings.Replace(content, "<", "&lt;", -1)
+		if premium == 3 {
+			content = strings.Replace(content, "&", "&amp;", -1)
+			content = strings.Replace(content, "<", "&lt;", -1)
+		} else {
+			content = strings.Replace(content, `"`, "&quot;", -1)
+			content = strings.Replace(content, "&", "&amp;", -1)
+			content = strings.Replace(content, "<", "&lt;", -1)
+			content = strings.Replace(content, ">", "&gt;", -1)
+		}
 		line += content
 		line += "</chat>"
 		fmt.Fprintf(f, "%s\r\n", line)
@@ -538,7 +550,7 @@ func ShowDbInfo(fileName, ext string) (done bool, err error) {
 		fmt.Println("sqlite3 file not found:")
 		return
 	}
-	db, err := sql.Open("sqlite3", "file:"+fileName+"?mode=ro&immutable=1")
+	db, err := sql.Open("sqlite3", "file:"+url.PathEscape(fileName)+"?mode=ro&immutable=1")
 	if err != nil {
 		return
 	}

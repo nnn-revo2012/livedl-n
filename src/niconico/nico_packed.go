@@ -85,7 +85,7 @@ ExitPacked:
 			n, err := resp.Body.Read(buffer)
 			if err != nil {
 				if err == io.EOF {
-					fmt.Println("Read EOF.")
+					//fmt.Println("Read EOF.")
 					//return nil
 					break ExitPacked
 				}
@@ -154,7 +154,7 @@ func (ps *PackedSegment) Disconnect() bool {
 }
 
 func (ps *PackedSegment) packedData(data []byte) error {
-	log.Printf("packedSegment received %d bytes.\n", len(data))
+	//log.Printf("packedSegment received %d bytes.\n", len(data))
 	return nil
 }
 
