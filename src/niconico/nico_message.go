@@ -169,13 +169,13 @@ func (msc *MessageServer) messageData(data []byte) error {
 	for item := range items {
 		entry := &pb.ChunkedEntry{}
 		if err := proto.Unmarshal(item, entry); err != nil {
-			return err
+			fmt.Println(err)
+			continue
 		}
 		//fmt.Println(entry)
-		if len(entry.String()) <= 0 {
-			return nil
+		if len(entry.String()) > 0 {
+			msc.entry <- entry
 		}
-		msc.entry <- entry
 	}
 
 	msc.stream.ClearBuffer()

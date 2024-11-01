@@ -16,13 +16,6 @@ func (bs *BinaryStream) AddBuffer(data []byte) {
 	bs.buffer = append(bs.buffer, data...)
 }
 
-func (bs *BinaryStream) CheckClearBuffer() {
-	if len(bs.buffer) == bs.offset {
-		bs.buffer = bs.buffer[:0]
-		bs.offset = 0
-	}
-}
-
 func (bs *BinaryStream) ClearBuffer() {
 	bs.buffer = bs.buffer[:0]
 	bs.offset = 0
@@ -64,7 +57,6 @@ func (bs *BinaryStream) Read() <- chan []byte {
 
 	go func() {
 		defer close(results)
-		//offset := 0
 		offset := bs.offset
 
 		for {
