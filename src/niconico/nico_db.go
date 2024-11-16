@@ -6,6 +6,8 @@ import (
 	"os"
 	"log"
 	"net/url"
+	"regexp"
+	"strconv"
 	"strings"
 	"database/sql"
 
@@ -155,6 +157,24 @@ func (hls *NicoHls) dbCreate() (err error) {
 		return
 	}
 
+	// syncData
+
+	_, err = hls.db.Exec(`
+	CREATE TABLE IF NOT EXISTS sync (
+		seqno     INTEGER PRIMARY KEY NOT NULL UNIQUE,
+		date      INTEGER NOT NULL
+	)
+	`)
+	if err != nil {
+		return
+	}
+	_, err = hls.db.Exec(`
+	CREATE UNIQUE INDEX IF NOT EXISTS sync0 ON sync(seqno);
+	`)
+	if err != nil {
+		return
+	}
+
 	//hls.__dbBegin()
 
 	return
@@ -255,6 +275,42 @@ func DbKVGet(db *sql.DB) (data map[string]interface{}) {
 			log.Println(err)
 		}
 		data[k] = v
+	}
+
+	return
+}
+
+func (hls *NicoHls) dbSyncSet(data string) {
+	var seqno, date int64
+	if ma := regexp.MustCompile(`"beginning_timestamp"\:(\d+)\,"sequence"\:(\d+)`).FindStringSubmatch(data); len(ma) > 0 {
+		//fmt.Printf("syncData %s=%s\n", ma[2], ma[1])
+		seqno, _ = strconv.ParseInt(ma[2], 10, 64)
+		date, _ = strconv.ParseInt(ma[1], 10, 64)
+	}
+	query := `INSERT OR REPLACE INTO sync (seqno,date) VALUES (?,?)`
+	hls.startDBGoroutine(func(sig <-chan struct{}) int {
+		hls.dbExec(query, seqno, date)
+		return OK
+	})
+}
+
+func DbSyncGet(db *sql.DB) (data []string) {
+	rows, err := db.Query(`SELECT seqno, date FROM sync ORDER by seqno`)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var seqno	int64
+		var date	int64
+		err := rows.Scan(&seqno, &date)
+		if err != nil {
+			log.Println(err)
+		}
+		fmt.Printf("data: %d,%d\n", seqno, date)
+		data = append(data, fmt.Sprintf("%d,%d",seqno, date))
 	}
 
 	return
@@ -384,6 +440,7 @@ func WriteComment(db *sql.DB, fileName string, skipHb, adjustVpos bool, seqnoSta
 		offset = seqnoStart * 500 //timeshift
 	} else {
 		offset = (serverTime/10) - (openTime*100) + (seqOffset*150) //on_air
+		offset -= 1100
 	}
 	providerType = kvs["providerType"].(string)
 	//fmt.Println("serverTime: ", serverTime)
@@ -394,6 +451,10 @@ func WriteComment(db *sql.DB, fileName string, skipHb, adjustVpos bool, seqnoSta
 	fmt.Println("openTime: ", openTime)
 	fmt.Println("vposBaseTime: ", vposBaseTime)
 	fmt.Println("offset: ", offset)
+
+	//syncData
+	sss := DbSyncGet(db)
+	fmt.Printf("syncData %v\n", sss)
 
 	rows, err := db.Query(fSelComment(commentRevision))
 	if err != nil {

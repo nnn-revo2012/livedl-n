@@ -42,6 +42,10 @@ import (
 
 type OBJ = map[string]interface{}
 
+type syncData struct {
+	seqNo              int
+	date               int64
+}
 type playlist struct {
 	uri                *url.URL
 	uriMaster          *url.URL
@@ -94,6 +98,7 @@ type NicoHls struct {
 	NicoSession string
 	limitBw     int
 	limitBwOrig int
+	syncData    []string
 
 	nicoDebug     bool
 	msgErrorCount int
@@ -1937,9 +1942,9 @@ func (hls *NicoHls) getPlaylist(argUri *url.URL) (is403, isEnd, isStop, is500 bo
 		re := regexp.MustCompile(`#EXT-X-STREAM-INF:(?:[^\n]*[^\n\w-])?BANDWIDTH=(\d+)[^\n]*\n(\S+)`)
 		ma := re.FindAllStringSubmatch(m3u8, -1)
 		if len(ma) > 0 {
-			var maxBw int
+			var maxBw, idxBw int
 			var uri *url.URL
-			for _, a := range ma {
+			for i, a := range ma {
 				bw, err := strconv.Atoi(a[1])
 				if err != nil {
 					log.Fatal(err)
@@ -1947,6 +1952,7 @@ func (hls *NicoHls) getPlaylist(argUri *url.URL) (is403, isEnd, isStop, is500 bo
 
 				set := func() {
 					maxBw = bw
+					idxBw = i
 					uri, err = urlJoin(argUri, a[2])
 					if err != nil {
 						log.Println(err)
@@ -1979,7 +1985,17 @@ func (hls *NicoHls) getPlaylist(argUri *url.URL) (is403, isEnd, isStop, is500 bo
 				return
 			}
 
-			fmt.Printf("BANDWIDTH: %d\n", maxBw)
+			if !hls.isTimeshift {
+				if idxBw < 1 {
+					idxBw = 1
+				}
+				fmt.Printf("BANDWIDTH: %d (index=%d)\n", maxBw, idxBw)
+				//DBにsegnoとdateを書き込み処理
+				//fmt.Printf("syncData Index=%d: %v\n", idxBw, hls.syncData[idxBw-1])
+				hls.dbSyncSet(hls.syncData[idxBw-1])
+			} else {
+				fmt.Printf("BANDWIDTH: %d\n", maxBw)
+			}
 			hls.playlist.bandwidth = maxBw
 			if hls.isTimeshift && hls.fastTimeshift {
 
@@ -1998,11 +2014,19 @@ func (hls *NicoHls) getPlaylist(argUri *url.URL) (is403, isEnd, isStop, is500 bo
 
 func (hls *NicoHls) streamSync(uri string) {
 	hls.startPGoroutine(func(sig <-chan struct{}) int {
-		m3u8, code, millisec, err, neterr := getString(uri)
+		data, code, millisec, err, neterr := getString(uri)
 		if hls.nicoDebug {
 			fmt.Fprintf(os.Stderr, "%s:streamSync: code=%v, err=%v, neterr=%v, %v(ms) \n>>>%s<<<\n",
-				debug_Now(), code, err, neterr, millisec, m3u8)
+				debug_Now(), code, err, neterr, millisec, data)
 		}
+
+		//{"encoding_id":"1","beginning_timestamp":1730604446500,"sequence":2295},
+		if ma := regexp.MustCompile(`"segments_metadata"\:\[\{([^\]]+)\}\]`).FindStringSubmatch(data); len(ma) > 0 {
+			hls.syncData = strings.Split(ma[1], "},{")
+			//idx := len(hls.syncData) - 1
+			//fmt.Printf("syncData index=%d: %s\n", idx, hls.syncData[idx])
+		}
+
 		if err != nil || neterr != nil {
 			return NETWORK_ERROR
 		}
@@ -2247,11 +2271,13 @@ func (hls *NicoHls) startMain() {
 				}
 
 			case "stream":
-				//if sync_uri, ok := objs.FindString(res, "data", "syncUri"); ok {
-				//	if (!playlistStarted) && sync_uri != "" {
-				//		hls.streamSync(sync_uri)
-				//	}
-				//}
+				if !hls.isTimeshift {
+					if sync_uri, ok := objs.FindString(res, "data", "syncUri"); ok {
+						if (!playlistStarted) && sync_uri != "" {
+							hls.streamSync(sync_uri)
+						}
+					
+				}}
 				if uri, ok := objs.FindString(res, "data", "uri"); ok {
 					if (!playlistStarted) && uri != "" {
 						playlistStarted = true
