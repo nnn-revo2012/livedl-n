@@ -25,11 +25,12 @@ type SegmentServer struct {
 	cancellationCtx      context.Context
 	cancelFunc           context.CancelFunc
 	//onNetworkError       func() error
+	servername           string
 	mu                   sync.Mutex
 	message              chan<- *pb.ChunkedMessage
 }
 
-func NewSegmentServer(uri string, message chan<- *pb.ChunkedMessage) *SegmentServer {
+func NewSegmentServer(uri, servername string, message chan<- *pb.ChunkedMessage) *SegmentServer {
 	ctx, cancel := context.WithCancel(context.Background())
 	headers := map[string]string{}
 
@@ -42,6 +43,7 @@ func NewSegmentServer(uri string, message chan<- *pb.ChunkedMessage) *SegmentSer
 		//buffer:             new(bytes.Buffer),
 		cancellationCtx:      ctx,
 		cancelFunc:           cancel,
+		servername:           servername,
 		message:              message,
 	}
 }
@@ -84,7 +86,7 @@ func (ssc *SegmentServer) Connect() error {
 			n, err := resp.Body.Read(buffer)
 			if err != nil {
 				if err == io.EOF {
-					log.Println("segmentRead EOF.")
+					log.Println(ssc.servername+"Read EOF.")
 					ssc.isDisconnect = true
 					return nil
 				}
@@ -138,12 +140,12 @@ func (ssc *SegmentServer) IsDisconnect() bool {
 func (ssc *SegmentServer) Disconnect() bool {
 	ssc.stopReceiving()
 	ssc.isDisconnect = true
-	log.Println("disconnect segment server.")
+	log.Println("disconnect "+ssc.servername+" server.")
 	return true
 }
 
 func (ssc *SegmentServer) segmentData(data []byte) error {
-	//log.Printf("segment received %d bytes.\n", len(data))
+	//log.Printf(ssc.servername+" received %d bytes.\n", len(data))
 
 	ssc.stream.AddBuffer(data)
 
@@ -167,6 +169,6 @@ func (ssc *SegmentServer) segmentData(data []byte) error {
 }
 
 func segmentNetworkError() error {
-	log.Println("segmentServer Network error")
+	log.Println("segment(or previous)Server Network error")
 	return nil
 }

@@ -309,7 +309,7 @@ func DbSyncGet(db *sql.DB) (data []string) {
 		if err != nil {
 			log.Println(err)
 		}
-		fmt.Printf("data: %d,%d\n", seqno, date)
+		//fmt.Printf("data: %d,%d\n", seqno, date)
 		data = append(data, fmt.Sprintf("%d,%d",seqno, date))
 	}
 
@@ -403,7 +403,7 @@ func dbGetCommentRevision(db *sql.DB) (commentRevision int) {
 	return
 }
 
-func WriteComment(db *sql.DB, fileName string, skipHb, adjustVpos bool, seqnoStart, seqnoEnd, seqOffset int64) {
+func WriteComment(db *sql.DB, fileName string, skipHb, adjustVpos bool, seqnoStart, seqnoEnd int64) {
 
 	var fSelComment = func(revision int) string {
 		var selAppend string
@@ -426,11 +426,19 @@ func WriteComment(db *sql.DB, fileName string, skipHb, adjustVpos bool, seqnoSta
 	var offset int64
 	kvs := DbKVGet(db)
 
+	//syncテーブルから読み込み
+	sync := DbSyncGet(db)
+	var sync_seqno, sync_date int64
+	if len(sync) > 0 {
+		//fmt.Printf("sync: %v\n", sync)
+		data := strings.Split(sync[0], ",")
+		sync_seqno, _ = strconv.ParseInt(data[0], 10, 64)
+		sync_date, _ = strconv.ParseInt(data[1], 10, 64)
+	}
+	fmt.Printf("sync: %d=%d\n", sync_seqno, sync_date)
+
 	var t float64
 	var sts string
-	var serverTime int64
-	t = kvs["serverTime"].(float64)
-	serverTime = int64(t)
 	t = kvs["openTime"].(float64)
 	openTime = int64(t)
 	t = kvs["vposBaseTime"].(float64)
@@ -439,11 +447,9 @@ func WriteComment(db *sql.DB, fileName string, skipHb, adjustVpos bool, seqnoSta
 	if sts == "ENDED" {
 		offset = seqnoStart * 500 //timeshift
 	} else {
-		offset = (serverTime/10) - (openTime*100) + (seqOffset*150) //on_air
-		offset -= 1100
+		offset = (sync_date/10) - (openTime*100) + (seqnoStart-sync_seqno)*150 //on_air
 	}
 	providerType = kvs["providerType"].(string)
-	//fmt.Println("serverTime: ", serverTime)
 	fmt.Println("status: ", sts)
 
 	fmt.Println("adjustVpos: ", adjustVpos)
@@ -451,10 +457,6 @@ func WriteComment(db *sql.DB, fileName string, skipHb, adjustVpos bool, seqnoSta
 	fmt.Println("openTime: ", openTime)
 	fmt.Println("vposBaseTime: ", vposBaseTime)
 	fmt.Println("offset: ", offset)
-
-	//syncData
-	sss := DbSyncGet(db)
-	fmt.Printf("syncData %v\n", sss)
 
 	rows, err := db.Query(fSelComment(commentRevision))
 	if err != nil {
@@ -637,6 +639,7 @@ func ShowDbInfo(fileName, ext string) (done bool, err error) {
 		open :=  int64(kvs["openTime"].(float64))
 		begin :=  int64(kvs["beginTime"].(float64))
 		end :=  int64(kvs["endTime"].(float64))
+		vpos :=  int64(kvs["vposBaseTime"].(float64))
 		username :=  kvs["userName"].(string)
 
 		fmt.Println("id: ", id)
@@ -649,9 +652,16 @@ func ShowDbInfo(fileName, ext string) (done bool, err error) {
 			fmt.Println("beginTime: ", time.Unix(begin, 0))
 		}
 		fmt.Println("endTime: ", time.Unix(end, 0))
+		fmt.Println("vposBaseTime: ", time.Unix(vpos, 0))
 	} else {
 		fmt.Println("kvs data not found")
 	}
+	//syncテーブルから読み込み
+	sync := DbSyncGet(db)
+	if len(sync) > 0 {
+		fmt.Printf("sync: %v\n", sync)
+	}
+
 	commentRevision :=  dbGetCommentRevision(db)
 	fmt.Println("commentRevision: ", commentRevision)
 

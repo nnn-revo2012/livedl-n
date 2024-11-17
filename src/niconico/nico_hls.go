@@ -413,11 +413,11 @@ func (hls *NicoHls) commentHandler(tag string, entry *pb.ChunkedMessage) (err er
 		}
 		fmt.Println(string(jsond))
 	case "tag_updated":
-		jsond, err = protojson.Marshal(entry.GetMessage().GetTagUpdated())
-		if err != nil {
-			return
-		}
-		fmt.Println(string(jsond))
+		//jsond, err = protojson.Marshal(entry.GetMessage().GetTagUpdated())
+		//if err != nil {
+		//	return
+		//}
+		//fmt.Println(string(jsond))
 	case "moderator_updated":
 		jsond, err = protojson.Marshal(entry.GetMessage().GetModeratorUpdated())
 		if err != nil {
@@ -1236,6 +1236,9 @@ LoopPacked:
 					psc.Disconnect()
 					return GOT_SIGNAL
 				}
+				if !isgetall {
+					return OK
+				}
 				if packedSegment.GetNext() != nil {
 					nexturi := packedSegment.GetNext().GetUri()
 					//fmt.Println("next uri: "+nexturi)
@@ -1256,12 +1259,16 @@ LoopPacked:
 	})
 }
 
-func (hls *NicoHls) ConnectSegmentServer(uri string) {
+func (hls *NicoHls) ConnectSegmentServer(uri string, issegment bool) {
 	hls.startCGoroutine(func(sig <-chan struct{}) int {
 		var err error
+		servername := "segment"
+		if !issegment {
+			servername = "previous"
+		}
 
 		message := make(chan *pb.ChunkedMessage, 3)
-		ssc := NewSegmentServer(uri, message)
+		ssc := NewSegmentServer(uri, servername, message)
 		var chunkedMessage *pb.ChunkedMessage
 		defer func() {
 			close(message)
@@ -1269,10 +1276,10 @@ func (hls *NicoHls) ConnectSegmentServer(uri string) {
 		// セグメントサーバーに接続
 		if !hls.interrupted() {
 			hls.startCGoroutine(func(sig <-chan struct{}) int {
-				log.Println("connect segmentServer")
+				log.Println("connect "+servername+"Server")
 				err = ssc.Connect()
 				if err != nil {
-					log.Println("segmentServer connect error:", err)
+					log.Println(servername+"Server connect error:", err)
 					ssc.Disconnect()
 					return COMMENT_WS_ERROR
 				}
@@ -1285,9 +1292,9 @@ func (hls *NicoHls) ConnectSegmentServer(uri string) {
 					ssc.Disconnect()
 					return GOT_SIGNAL
 				case <-time.After(10 * time.Second):
-					log.Println("segmentServer timeout(10Sec).")
+					log.Println(servername+"Server timeout(10Sec).")
 					if ssc.IsUnexpectedDisconnect() {
-						log.Println("segmentServer disconnect")
+						log.Println(servername+"Server disconnect")
 						return COMMENT_WS_ERROR
 					} else if ssc.IsDisconnect() {
 						return OK
@@ -1330,6 +1337,19 @@ func (hls *NicoHls) startComment(messageServerUri, threadId, waybackkey string) 
 			}()
 
 			var err error
+
+			var mtxChatTime sync.Mutex
+			var _chatPrevious int = 2
+			decChatPrevious := func() {
+				mtxChatTime.Lock()
+				defer mtxChatTime.Unlock()
+				_chatPrevious--
+			}
+			getChatPrevious := func() int {
+				mtxChatTime.Lock()
+				defer mtxChatTime.Unlock()
+				return _chatPrevious
+			}
 
 			entry := make(chan *pb.ChunkedEntry, 3)
 			msc := NewMessageServer(messageServerUri, entry)
@@ -1409,23 +1429,24 @@ LoopMessage:
 							if hls.isTimeshift {
 								if ma := regexp.MustCompile(`segment:{uri:"([^"]+)"}`).FindStringSubmatch(s); len(ma) > 0 {
 									//fmt.Println("backword uri: "+ma[1])
-									hls.ConnectPackedServer(ma[1], false)
+									hls.ConnectPackedServer(ma[1], true)	//get allcomments
 								}
 							}
 						case "previous":
 							//previous:{from:{seconds:1723789916}  until:{seconds:1723789932}  uri:"https://mpn.live.nicovideo.jp/data/segment/v4/BBzuEZXfmsvy4vfcCoBFmp0sjQJX13dqzTxyrxhNIw_2kLl1Jsc6tllJh93dITT5CKj7_U16-MvwtIt-DKIFmr2k"}
-							//if !hls.isTimeshift {
-							//	if ma := regexp.MustCompile(`uri:"([^"]+)"}`).FindStringSubmatch(s); len(ma) > 0 {
+							if !hls.isTimeshift && getChatPrevious() > 0 {
+								decChatPrevious()
+								if ma := regexp.MustCompile(`uri:"([^"]+)"}`).FindStringSubmatch(s); len(ma) > 0 {
 									//fmt.Println("previous uri: "+ma[1])
-									//hls.ConnectPreviousServer(ma[1])
-							//	}
-							//}
+									hls.ConnectSegmentServer(ma[1], false)	//false=previous
+								}
+							}
 						case "segment":
 							//segment:{from:{seconds:1723789932}  until:{seconds:1723789948}  uri:"https://mpn.live.nicovideo.jp/data/segment/v4/BBwWCLcROYRA-MqsINQ8cjWLXsAqzVNfiMfFlT-UI6CxOQweAhdxlC305oHkdckSTggbyDbPgEzO-1BIbFrP-WpF"}
 							if !hls.isTimeshift {
 								if ma := regexp.MustCompile(`uri:"([^"]+)"}`).FindStringSubmatch(s); len(ma) > 0 {
 									//fmt.Println("segment uri: "+ma[1])
-									hls.ConnectSegmentServer(ma[1])
+									hls.ConnectSegmentServer(ma[1], true)	//true=segment
 								}
 							}
 						default:
