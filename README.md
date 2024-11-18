@@ -25,13 +25,11 @@ See https://github.com/himananiito/livedl
 go build:  
 - Linux and Mac:
   ```
-  $ cd src; go build -o ../livedl livedl.go; cd ..
+  $ go build -C src -o ../livedl livedl.go
   ```  
 - Windows:
   ```
-  > cd src
-  > go build -o ../livedl.exe livedl.go
-  > cd ..
+  > go build -C src -o ../livedl.exe livedl.go
   ```  
 - Windows (and use powershell):
   ```
