@@ -1,11 +1,13 @@
 #go run updatebuildno.go
-#go clean -cache
+go clean -cache
 set-item env:GO111MODULE -value on
 rm .\livedl.exe
-go build -C src -ldflags="-s -w" -trimpath -o ..\livedl.exe livedl.go
+#go build -C src -ldflags="-s -w" -trimpath -o ..\livedl.exe livedl.go
+go build -C src -trimpath -o ..\livedl.exe livedl.go
 .\build-386.ps1
 rm .\livedl-logger.exe
-go build -C src -ldflags="-s -w" -trimpath -o ..\livedl-logger.exe livedl-logger.go
+#go build -C src -ldflags="-s -w" -trimpath -o ..\livedl-logger.exe livedl-logger.go
+go build -C src -trimpath -o ..\livedl-logger.exe livedl-logger.go
 
 # hide local path
 perl replacelocal.pl
