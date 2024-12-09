@@ -407,17 +407,19 @@ func (hls *NicoHls) commentHandler(tag string, entry *pb.ChunkedMessage) (err er
 		}
 		//fmt.Println(string(jsond))
 	case "game_update":
-		jsond, err = protojson.Marshal(entry.GetMessage().GetGameUpdate())
-		if err != nil {
-			return
-		}
+		//jsond, err = protojson.Marshal(entry.GetMessage().GetGameUpdate())
+		//if err != nil {
+		//	return
+		//}
 		fmt.Println(string(jsond))
+		return
 	case "tag_updated":
 		//jsond, err = protojson.Marshal(entry.GetMessage().GetTagUpdated())
 		//if err != nil {
 		//	return
 		//}
 		//fmt.Println(string(jsond))
+		return
 	case "moderator_updated":
 		jsond, err = protojson.Marshal(entry.GetMessage().GetModeratorUpdated())
 		if err != nil {
@@ -459,11 +461,12 @@ func (hls *NicoHls) commentHandler(tag string, entry *pb.ChunkedMessage) (err er
 		}
 		//fmt.Println("enquate: "+string(jsond))
 	case "statistics":
-		jsond, err = protojson.Marshal(entry.GetState().GetStatistics())
-		if err != nil {
-			return
-		}
-		fmt.Println("statistics: "+string(jsond))
+		//jsond, err = protojson.Marshal(entry.GetState().GetStatistics())
+		//if err != nil {
+		//	return
+		//}
+		//fmt.Println("statistics: "+string(jsond))
+		return
 	case "trial_panel":
 		jsond, err = protojson.Marshal(entry.GetState().GetTrialPanel())
 		if err != nil {
@@ -640,9 +643,6 @@ func (hls *NicoHls) commentHandler(tag string, entry *pb.ChunkedMessage) (err er
 					}
 				}
 			}
-		case "statistics":
-			attrMap["premium"] = 3
-			content = "/statistics " + string(jsond)
 		case "trial_panel":
 			attrMap["premium"] = 3
 			if ttt, ok := attrMap["panel"].(string); ok {
