@@ -8,7 +8,6 @@ import (
 	"log"
 	"net/http"
 	"sync"
-	"time"
 
 	pb "github.com/nnn-revo2012/livedl/proto"
 
@@ -46,9 +45,6 @@ func NewPackedSegment(uri string, segment chan<- *pb.PackedSegment) *PackedSegme
 }
 
 func (ps *PackedSegment) Connect() error {
-	client := &http.Client{
-		Timeout: 45 * time.Second,
-	}
 
 	messageUri := ps.uri
 	req, err := http.NewRequestWithContext(ps.cancellationCtx, http.MethodGet, messageUri, nil)
@@ -60,7 +56,7 @@ func (ps *PackedSegment) Connect() error {
 		req.Header.Set(key, value)
 	}
 
-	resp, err := client.Do(req)
+	resp, err := ClientMessage.Do(req)
 	if err != nil {
 		ps.mu.Lock()
 		defer ps.mu.Unlock()
@@ -110,7 +106,6 @@ ExitPacked:
 	if err != nil {
 		return err
 	}
-	ps.isDisconnect = true
 
 	//if ps.IsUnexpectedDisconnect() {
 		//if err := ps.onNetworkError(); err != nil {
@@ -124,6 +119,7 @@ ExitPacked:
 		return err
 	}
 	ps.segment <- segment
+	ps.isDisconnect = true
 
 	return nil
 }

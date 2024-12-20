@@ -1239,7 +1239,7 @@ LoopPacked:
 				if !isgetall {
 					return OK
 				}
-				if packedSegment.GetNext() != nil {
+				if packedSegment.GetNext() != nil &&  !hls.interrupted() {
 					nexturi := packedSegment.GetNext().GetUri()
 					//fmt.Println("next uri: "+nexturi)
 					if psc.GetNextUri() != nexturi {

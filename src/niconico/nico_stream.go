@@ -75,9 +75,13 @@ func (bs *BinaryStream) Read() <- chan []byte {
 
 			offset = rEnd
 			bs.offset = rEnd
-			binaryData := make([]byte, rEnd-start)
-			binaryData = bs.buffer[start:rEnd]
-			results <- binaryData
+			if rEnd - start > 0 {
+				binaryData := make([]byte, rEnd-start)
+				binaryData = bs.buffer[start:rEnd]
+				results <- binaryData
+			} else {
+				break
+			}
 		}
 	}()
 

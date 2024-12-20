@@ -31,10 +31,20 @@ type MessageServer struct {
 	entry                chan<- *pb.ChunkedEntry
 }
 
+var ClientMessage = &http.Client{}
+
 func NewMessageServer(uri string, entry chan<- *pb.ChunkedEntry) *MessageServer {
 	ctx, cancel := context.WithCancel(context.Background())
 	headers := map[string]string{
 		"header": "u=1, i",
+	}
+
+	dt := http.DefaultTransport.(*http.Transport).Clone()
+	dt.MaxIdleConnsPerHost = 10
+
+	ClientMessage = &http.Client{
+		Transport: dt,
+		Timeout:   45 * time.Second,
 	}
 
 	return &MessageServer{
@@ -53,10 +63,6 @@ func NewMessageServer(uri string, entry chan<- *pb.ChunkedEntry) *MessageServer 
 }
 
 func (msc *MessageServer) Connect() error {
-	client := &http.Client{
-		Timeout: 45 * time.Second,
-	}
-
 	messageUri := msc.uri + "?at=" + msc.nextStreamAt
 	req, err := http.NewRequestWithContext(msc.cancellationCtx, http.MethodGet, messageUri, nil)
 	if err != nil {
@@ -67,7 +73,7 @@ func (msc *MessageServer) Connect() error {
 		req.Header.Set(key, value)
 	}
 
-	resp, err := client.Do(req)
+	resp, err := ClientMessage.Do(req)
 	if err != nil {
 		msc.mu.Lock()
 		defer msc.mu.Unlock()
@@ -173,7 +179,7 @@ func (msc *MessageServer) messageData(data []byte) error {
 			continue
 		}
 		//fmt.Println(entry)
-		if len(entry.String()) > 0 {
+		if len(entry.String()) > 0  && !msc.isDisconnect {
 			msc.entry <- entry
 		}
 	}

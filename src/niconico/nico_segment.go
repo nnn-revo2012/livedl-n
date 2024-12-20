@@ -8,7 +8,6 @@ import (
 	"log"
 	"net/http"
 	"sync"
-	"time"
 
 	pb "github.com/nnn-revo2012/livedl/proto"
 
@@ -49,10 +48,6 @@ func NewSegmentServer(uri, servername string, message chan<- *pb.ChunkedMessage)
 }
 
 func (ssc *SegmentServer) Connect() error {
-	client := &http.Client{
-		Timeout: 45 * time.Second,
-	}
-
 	req, err := http.NewRequestWithContext(ssc.cancellationCtx, http.MethodGet, ssc.uri, nil)
 	if err != nil {
 		return err
@@ -62,7 +57,7 @@ func (ssc *SegmentServer) Connect() error {
 		req.Header.Set(key, value)
 	}
 
-	resp, err := client.Do(req)
+	resp, err := ClientMessage.Do(req)
 	if err != nil {
 		ssc.mu.Lock()
 		defer ssc.mu.Unlock()
@@ -158,7 +153,7 @@ func (ssc *SegmentServer) segmentData(data []byte) error {
 			continue
 		}
 		//fmt.Println(message)
-		if len(message.String()) > 0 {
+		if len(message.String()) > 0  && !ssc.isDisconnect {
 			ssc.message <- message
 		}
 	}
