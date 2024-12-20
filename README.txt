@@ -1,4 +1,4 @@
-livedl (20241210.55-windows-amd64)
+livedl (20241221.56-windows-amd64)
 Usage:
 livedl [COMMAND] options... [--] FILE
 
@@ -103,6 +103,13 @@ FILE:
 
 
 ﻿更新履歴
+20241221.56
+- MessageServer(コメントサーバー)処理修正
+  - MessageServerに接続時のTCP接続数をなるべく増やさないように修正
+  - MessageServerに接続時のTCP同時接続数をデフォルト2から10に修正
+  - 録画中断中に 'panic: send on closed channel' にならないよう修正
+  - 録画中に 'panic: runtime error: makeslice: len out of range' にならないよう修正
+
 20241210.55
 - ニコ生新仕様(2024/08/05)対応（リアルタイム・タイムシフト）
   - 'getProps: page not found'と表示され録画しないのを修正
