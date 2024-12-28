@@ -43,6 +43,21 @@ var Client = &http.Client{
 	},
 }
 
+func SetTransport() bool {
+	dt := ClonedTransport(http.DefaultTransport)
+	dt.MaxIdleConnsPerHost = 5
+	Client.Transport = dt
+	return true
+}
+
+func ClonedTransport(rt http.RoundTripper) *http.Transport {
+	t, ok := rt.(*http.Transport)
+	if !ok {
+		return nil
+	}
+	return t.Clone()
+}
+
 func checkTransport() bool {
 	if Client.Transport == nil {
 		Client.Transport = &http.Transport{}

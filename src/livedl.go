@@ -75,6 +75,8 @@ func main() {
 	opt := options.ParseArgs()
 
 	// http
+	httpbase.SetTransport()
+
 	if opt.HttpRootCA != "" {
 		if err := httpbase.SetRootCA(opt.HttpRootCA); err != nil {
 			fmt.Println(err)

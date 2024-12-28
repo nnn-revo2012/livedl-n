@@ -7,9 +7,11 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"sync"
 	"time"
 
+	"github.com/nnn-revo2012/livedl/httpbase"
 	pb "github.com/nnn-revo2012/livedl/proto"
 
     "google.golang.org/protobuf/proto"
@@ -33,14 +35,28 @@ type MessageServer struct {
 
 var ClientMessage = &http.Client{}
 
-func NewMessageServer(uri string, entry chan<- *pb.ChunkedEntry) *MessageServer {
+func setMessageProxy(rawurl string) (err error) {
+	u, err := url.Parse(rawurl)
+	if err != nil {
+		return
+	}
+	ClientMessage.Transport.(*http.Transport).Proxy = http.ProxyURL(u)
+	return
+}
+
+func NewMessageServer(uri, proxy string, entry chan<- *pb.ChunkedEntry) *MessageServer {
 	ctx, cancel := context.WithCancel(context.Background())
 	headers := map[string]string{
 		"header": "u=1, i",
 	}
 
-	dt := http.DefaultTransport.(*http.Transport).Clone()
+	//dt := http.DefaultTransport.(*http.Transport).Clone()
+	dt := httpbase.ClonedTransport(http.DefaultTransport)
 	dt.MaxIdleConnsPerHost = 10
+
+	if proxy != "" {
+		setMessageProxy(proxy)
+	}
 
 	ClientMessage = &http.Client{
 		Transport: dt,

@@ -63,6 +63,7 @@ type NicoHls struct {
 
 	webSocketUrl string
 	myUserId     string
+	proxy        string
 
 	commentStarted    bool
 	mtxCommentStarted sync.Mutex
@@ -256,6 +257,7 @@ func NewHls(opt options.Option, prop map[string]interface{}) (hls *NicoHls, err 
 	hls = &NicoHls{
 		webSocketUrl: webSocketUrl,
 		myUserId:     myUserId,
+		proxy:        opt.HttpProxy,
 
 		quality: quality,
 		dbName:  dbName,
@@ -663,7 +665,10 @@ func (hls *NicoHls) commentHandler(tag string, entry *pb.ChunkedMessage) (err er
 			attrMap["premium"] = 3
 			if jumpMap, ok := attrMap["jump"].(map[string]interface{}); ok {
 				content = "/move_order " + jumpMap["message"].(string) +
-					"(\"https://www.live.nicovideo.jp/watch/" + jumpMap["content"].(string) + "\")"
+					"(https://live.nicovideo.jp/watch/" + jumpMap["content"].(string) + ")"
+			} else if redirectMap, ok := attrMap["redirect"].(map[string]interface{}); ok {
+				content = "/move_order " + redirectMap["message"].(string) +
+					"(" + redirectMap["uri"].(string) + ")"
 			} else {
 				content = "/move_order " + string(jsond)
 			}
@@ -1352,7 +1357,7 @@ func (hls *NicoHls) startComment(messageServerUri, threadId, waybackkey string) 
 			}
 
 			entry := make(chan *pb.ChunkedEntry, 3)
-			msc := NewMessageServer(messageServerUri, entry)
+			msc := NewMessageServer(messageServerUri, hls.proxy, entry)
 			var chunkedEntry *pb.ChunkedEntry
 			defer func() {
 				close(entry)
@@ -2297,8 +2302,8 @@ func (hls *NicoHls) startMain() {
 						if (!playlistStarted) && sync_uri != "" {
 							hls.streamSync(sync_uri)
 						}
-					
-				}}
+					}
+				}
 				if uri, ok := objs.FindString(res, "data", "uri"); ok {
 					if (!playlistStarted) && uri != "" {
 						playlistStarted = true
