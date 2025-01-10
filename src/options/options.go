@@ -18,7 +18,7 @@ import (
 	"golang.org/x/crypto/sha3"
 )
 
-const MinimumHttpTimeout = 5
+const MinimumHttpTimeout = 30
 
 var DefaultTcasRetryTimeoutMinute = 5 // TcasRetryTimeoutMinute
 var DefaultTcasRetryInterval = 60     // TcasRetryInterval
@@ -43,8 +43,9 @@ type Option struct {
 	DBFile                 string
 	NicoHlsPort            int
 	NicoLimitBw            string
-	NicoTsStart            float64
-	NicoTsStop             int
+	//NicoTsStart            float64
+	NicoTsStart            int64
+	NicoTsStop             int64
 	NicoFormat             string
 	NicoFastTs             bool
 	NicoUltraFastTs        bool
@@ -68,6 +69,8 @@ type Option struct {
 	HttpProxy              string
 	NoChdir                bool
 	HttpTimeout            int
+	NicoNoStreamlink       bool
+	NicoNoYtdlp            bool
 }
 
 func getCmd() (cmd string) {
@@ -153,6 +156,10 @@ COMMAND:
   -nico-conv-force-concat        MP4への変換で画質変更または抜けがあっても分割しないように設定
   -nico-conv-force-concat=on     (+) 上記を有効に設定
   -nico-conv-force-concat=off    (+) 上記を無効に設定(デフォルト)
+  -nico-no-streamlink=on         (+) Streamlinkを使用しない(デフォルト)
+  -nico-no-streamlink=off        (+) Streamlinkを使用する
+  -nico-no-ytdlp=on              (+) yt-dlpを使用しない(デフォルト)
+  -nico-no-ytdlp=off             (+) yt-dlpを使用する
 
 ツイキャス録画用オプション:
   -tcas-retry=on                 (+) 録画終了後に再試行を行う
@@ -182,7 +189,7 @@ Youtube live録画用オプション:
 HTTP関連
   -http-skip-verify=on           (+) TLS証明書の認証をスキップする (32bit版対策)
   -http-skip-verify=off          (+) TLS証明書の認証をスキップしない (デフォルト)
-  -http-timeout <num>            (+) タイムアウト時間（秒）デフォルト: 5秒（最低値）
+  -http-timeout <num>            (+) タイムアウト時間（秒）デフォルト: 30秒（最低値）
 
 
 (+)のついたオプションは、次回も同じ設定が使用されることを示す。
@@ -430,7 +437,7 @@ func GetBrowserName(str string) (name string) {
 	return
 }
 
-func parseTime(arg string) (ret int, err error) {
+func parseTime(arg string) (ret int64, err error) {
 	var hour, min, sec int
 
 	if m := regexp.MustCompile(`^(\d+):(\d+):(\d+)$`).FindStringSubmatch(arg); len(m) > 0 {
@@ -464,7 +471,7 @@ func parseTime(arg string) (ret int, err error) {
 		err = fmt.Errorf("regexp not matched")
 	}
 
-	ret = hour * 3600 + min * 60 + sec
+	ret = int64(hour * 3600 + min * 60 + sec)
 
 	return
 }
@@ -500,7 +507,9 @@ func ParseArgs() (opt Option) {
 		IFNULL((SELECT v FROM conf WHERE k == "NicoSkipHb"), 0),
 		IFNULL((SELECT v FROM conf WHERE k == "NicoAdjustVpos"), 0),
 		IFNULL((SELECT v FROM conf WHERE k == "HttpSkipVerify"), 0),
-		IFNULL((SELECT v FROM conf WHERE k == "HttpTimeout"), 5);
+		IFNULL((SELECT v FROM conf WHERE k == "HttpTimeout"), 30),
+		IFNULL((SELECT v FROM conf WHERE k == "NicoNoStreamlink"), 1),
+		IFNULL((SELECT v FROM conf WHERE k == "NicoNoYtdlp"), 1);
 	`).Scan(
 		&opt.NicoFormat,
 		&opt.NicoLimitBw,
@@ -523,6 +532,8 @@ func ParseArgs() (opt Option) {
 		&opt.NicoAdjustVpos,
 		&opt.HttpSkipVerify,
 		&opt.HttpTimeout,
+		&opt.NicoNoStreamlink,
+		&opt.NicoNoYtdlp,
 	)
 	if err != nil {
 		log.Println(err)
@@ -788,7 +799,8 @@ func ParseArgs() (opt Option) {
 			if err != nil {
 				return fmt.Errorf("--nico-ts-start: Not a number %s\n", s)
 			}
-			opt.NicoTsStart = float64(num)
+			//opt.NicoTsStart = float64(num)
+			opt.NicoTsStart = num
 			return nil
 		}},
 		Parser{regexp.MustCompile(`\A(?i)--?nico-?ts-?start-?min\z`), func() (err error) {
@@ -800,7 +812,8 @@ func ParseArgs() (opt Option) {
 			if err != nil {
 				return fmt.Errorf("--nico-ts-start-min: Not a number %s\n", s)
 			}
-			opt.NicoTsStart = float64(num)
+			//opt.NicoTsStart = float64(num)
+			opt.NicoTsStart = num
 			return nil
 		}},
 		Parser{regexp.MustCompile(`\A(?i)--?nico-?ts-?stop\z`), func() (err error) {
@@ -1137,6 +1150,30 @@ func ParseArgs() (opt Option) {
 			}
 			return
 		}},
+		Parser{regexp.MustCompile(`\A(?i)--?nico-?no-?streamlink(?:=(on|off))?\z`), func() (err error) {
+			if strings.EqualFold(match[1], "on") {
+				opt.NicoNoStreamlink = true
+				dbConfSet(db, "NicoNoStreamlink", opt.NicoNoStreamlink)
+			} else if strings.EqualFold(match[1], "off") {
+				opt.NicoNoStreamlink = false
+				dbConfSet(db, "NicoNoStreamlink", opt.NicoNoStreamlink)
+			} else {
+				opt.NicoNoStreamlink = false
+			}
+			return nil
+		}},
+		Parser{regexp.MustCompile(`\A(?i)--?nico-?no-?ytdlp(?:=(on|off))?\z`), func() (err error) {
+			if strings.EqualFold(match[1], "on") {
+				opt.NicoNoYtdlp = true
+				dbConfSet(db, "NicoNoYtdlp", opt.NicoNoYtdlp)
+			} else if strings.EqualFold(match[1], "off") {
+				opt.NicoNoYtdlp = false
+				dbConfSet(db, "NicoNoYtdlp", opt.NicoNoYtdlp)
+			} else {
+				opt.NicoNoYtdlp = false
+			}
+			return nil
+		}},
 	}
 
 	checkFILE := func(arg string) bool {
@@ -1263,6 +1300,8 @@ LB_ARG:
 		fmt.Printf("Conf(NicoForceResv): %#v\n", opt.NicoForceResv)
 		fmt.Printf("Conf(NicoSkipHb): %#v\n", opt.NicoSkipHb)
 		fmt.Printf("Conf(NicoAdjustVpos): %#v\n", opt.NicoAdjustVpos)
+		fmt.Printf("Conf(NicoNoStreamlink): %#v\n", opt.NicoNoStreamlink)
+		fmt.Printf("Conf(NicoNoYtdlp): %#v\n", opt.NicoNoYtdlp)
 
 	case "YOUTUBE":
 		fmt.Printf("Conf(YtNoStreamlink): %#v\n", opt.YtNoStreamlink)

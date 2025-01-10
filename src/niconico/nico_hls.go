@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"html"
 	"io/ioutil"
+	"bufio"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -14,7 +15,6 @@ import (
 	"github.com/nnn-revo2012/livedl/files"
 	"github.com/nnn-revo2012/livedl/objs"
 	"github.com/nnn-revo2012/livedl/options"
-	"log"
 	"os"
 	"os/signal"
 	"runtime"
@@ -31,6 +31,10 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/nnn-revo2012/livedl/gorman"
 	"github.com/nnn-revo2012/livedl/httpbase"
+	"github.com/nnn-revo2012/livedl/procs/streamlink"
+	"github.com/nnn-revo2012/livedl/procs/youtube_dl"
+	"github.com/nnn-revo2012/livedl/procs"
+	"log"
 	"math"
 	_ "net/http/pprof"
 
@@ -65,6 +69,10 @@ type NicoHls struct {
 	myUserId     string
 	proxy        string
 
+	nicoLiveId       string
+	nicoNoStreamlink bool
+	nicoNoYtdlp      bool
+
 	commentStarted    bool
 	mtxCommentStarted sync.Mutex
 
@@ -86,7 +94,8 @@ type NicoHls struct {
 
 	isTimeshift        bool
 	timeshiftStart     float64
-	timeshiftStop      int
+	tsStart            int64
+	tsStop             int64
 	fastTimeshift      bool
 	ultrafastTimeshift bool
 
@@ -262,6 +271,10 @@ func NewHls(opt options.Option, prop map[string]interface{}) (hls *NicoHls, err 
 		quality: quality,
 		dbName:  dbName,
 
+		nicoLiveId: pid,
+		nicoNoStreamlink: opt.NicoNoStreamlink,
+		nicoNoYtdlp: opt.NicoNoYtdlp,
+
 		isTimeshift:        timeshift,
 		fastTimeshift:      opt.NicoFastTs || opt.NicoUltraFastTs,
 		ultrafastTimeshift: false,
@@ -276,8 +289,9 @@ func NewHls(opt options.Option, prop map[string]interface{}) (hls *NicoHls, err 
 		gmDB:   gorman.WithChecker(func(c int) { hls.checkReturnCode(c) }),
 		gmMain: gorman.WithChecker(func(c int) { hls.checkReturnCode(c) }),
 
-		timeshiftStart: opt.NicoTsStart,
-		timeshiftStop:  opt.NicoTsStop,
+		timeshiftStart: float64(opt.NicoTsStart),
+		tsStart:  opt.NicoTsStart,
+		tsStop:  opt.NicoTsStop,
 	}
 
 	hls.fastTimeshiftOrig = hls.fastTimeshift
@@ -310,6 +324,12 @@ func NewHls(opt options.Option, prop map[string]interface{}) (hls *NicoHls, err 
 			if !strings.HasPrefix(k, "//") {
 				hls.dbKVSet(k, v)
 			}
+		}
+		if !hls.nicoNoStreamlink || !hls.nicoNoYtdlp {
+			sno := hls.tsStart / 5
+			hls.dbKVSet("seqStart", sno)
+			eno := hls.tsStop / 5
+			hls.dbKVSet("seqEnd", eno)
 		}
 		//fmt.Println("Write dbKVSet")
 	}
@@ -992,6 +1012,230 @@ func (hls *NicoHls) getCommentStarted() bool {
 	defer hls.mtxCommentStarted.Unlock()
 	return hls.commentStarted
 }
+
+var split = func(data []byte, atEOF bool) (advance int, token []byte, err error) {
+	for i := 0; i < len(data) ; i++ {
+		if data[i] == '\n' {
+			return i + 1, data[:i + 1], nil
+		}
+		if data[i] == '\r' {
+			if (i + 1) == len(data) {
+				return 0, nil, nil
+			}
+			if data[i + 1] == '\n' {
+				return i + 2, data[:i + 2], nil
+			}
+			return i + 1, data[:i + 1], nil
+		}
+	}
+
+	if atEOF && len(data) > 0 {
+		return len(data), data, nil
+	}
+
+	return 0, nil, nil
+}
+
+//func execStreamlink(gm *gorman.GoroutineManager, uri, name string) (notSupport bool, err error) {
+func (hls *NicoHls) execStreamlink(uri, name, session string) (notSupport bool, err error) {
+
+	cmd, stdout, stderr, err := streamlink.Open(uri, "--http-cookie=user_session="+session, "best", "--retry-max", "10", "-o", name)
+	if err != nil {
+		return
+	}
+	defer stdout.Close()
+	defer stderr.Close()
+
+	chStdout := make(chan string, 10)
+	chStderr := make(chan string, 10)
+	chEof := make(chan struct{}, 2)
+
+	// stdout
+	//gm.Go(func(c <-chan struct{}) int {
+	hls.startCGoroutine(func(sig <-chan struct{}) int {
+		defer func(){
+			chEof <- struct{}{}
+		}()
+		scanner := bufio.NewScanner(stdout)
+		scanner.Split(split)
+
+		for scanner.Scan() {
+			chStdout <- scanner.Text()
+		}
+
+		return 0
+	})
+
+	// stderr
+	//gm.Go(func(c <-chan struct{}) int {
+	hls.startCGoroutine(func(sig <-chan struct{}) int {
+		defer func(){
+			chEof <- struct{}{}
+		}()
+		scanner := bufio.NewScanner(stderr)
+		scanner.Split(split)
+
+		for scanner.Scan() {
+			chStderr <- scanner.Text()
+		}
+
+		return 0
+	})
+
+
+	// outputs
+	//gm.Go(func(c <-chan struct{}) int {
+	hls.startCGoroutine(func(sig <-chan struct{}) int {
+		for {
+			var s string
+			select {
+			case s = <-chStdout:
+			case s = <-chStderr:
+			case <-chEof:
+				return 0
+			}
+
+			if strings.HasPrefix(s, "[cli][error]") {
+				fmt.Print(s)
+
+				notSupport = true
+				procs.Kill(cmd.Process.Pid)
+				break
+			} else if strings.HasPrefix(s, "Traceback (most recent call last):") {
+				fmt.Print(s)
+
+				notSupport = true
+				//procs.Kill(cmd.Process.Pid)
+				//break
+			} else {
+				fmt.Print(s)
+			}
+		}
+		return 0
+	})
+
+	cmd.Wait()
+
+	return
+}
+
+//func execYoutube_dl(gm *gorman.GoroutineManager, uri, name string) (err error) {
+func (hls *NicoHls) execYoutube_dl(uri, name, session string) (err error) {
+	defer func() {
+		part := name + ".part"
+		if _, test := os.Stat(part); test == nil {
+			if _, test := os.Stat(name); test != nil {
+				os.Rename(part, name)
+			}
+		}
+	}()
+
+	cmd, stdout, stderr, err := youtube_dl.Open("--add-headers", "Cookie: user_session="+session, "-no-progress", "-o", name, uri)
+	if err != nil {
+		return
+	}
+	defer stdout.Close()
+	defer stderr.Close()
+
+	chStdout := make(chan string, 10)
+	chStderr := make(chan string, 10)
+	chEof := make(chan struct{}, 2)
+
+	// stdout
+	//gm.Go(func(c <-chan struct{}) int {
+	hls.startCGoroutine(func(sig <-chan struct{}) int {
+		defer func(){
+			chEof <- struct{}{}
+		}()
+		scanner := bufio.NewScanner(stdout)
+		scanner.Split(split)
+
+		for scanner.Scan() {
+			chStdout <- scanner.Text()
+		}
+
+		return 0
+	})
+
+	// stderr
+	//gm.Go(func(c <-chan struct{}) int {
+	hls.startCGoroutine(func(sig <-chan struct{}) int {
+		defer func(){
+			chEof <- struct{}{}
+		}()
+		scanner := bufio.NewScanner(stderr)
+		scanner.Split(split)
+
+		for scanner.Scan() {
+			chStderr <- scanner.Text()
+		}
+
+		return 0
+	})
+
+	// outputs
+	//gm.Go(func(c <-chan struct{}) int {
+	hls.startCGoroutine(func(sig <-chan struct{}) int {
+		var old int64
+		for {
+			var s string
+			select {
+			case s = <-chStdout:
+			case s = <-chStderr:
+			case <-chEof:
+				return 0
+			}
+
+			if strings.HasPrefix(s, "[hls @ ") || strings.HasPrefix(s, "[https @ ") {
+				// ffmpeg unwanted logs
+			} else {
+				if strings.HasPrefix(s, "[download]") {
+					var now = time.Now().UnixNano()
+					if now - old > 2 * 1000 * 1000 * 1000 {
+						old = now
+					} else {
+						continue
+					}
+				}
+				fmt.Print(s)
+			}
+		}
+		return 0
+	})
+
+	cmd.Wait()
+	return
+}
+
+func (hls *NicoHls) startExec(nicoNoStreamlink, nicoNoYoutube_dl bool) (err error) {
+	hls.startPGoroutine(func(sig <-chan struct{}) int {
+		var retry bool
+		var name string
+		var err error
+		uri := fmt.Sprintf("https://live.nicovideo.jp/watch/%s", hls.nicoLiveId)
+		name = files.ChangeExtention(hls.dbName, "mp4")
+		name, err = files.GetFileNameNext(name)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+
+		if !nicoNoStreamlink {
+			retry, err = hls.execStreamlink(uri, name, hls.NicoSession)
+		}
+		if !hls.interrupted() {
+			if err != nil || retry || (nicoNoStreamlink && (!nicoNoYoutube_dl)) {
+				hls.execYoutube_dl(uri, name, hls.NicoSession)
+			}
+		}
+		if hls.interrupted() {
+			return GOT_SIGNAL
+		}
+		return OK
+	})
+	return
+}
+
 /*
 func (hls *NicoHls) startComment(messageServerUri, threadId, waybackkey string) {
 	if (!hls.getCommentStarted()) && (!hls.commentDone) {
@@ -1831,7 +2075,7 @@ func (hls *NicoHls) getPlaylist(argUri *url.URL) (is403, isEnd, isStop, is500 bo
 		// prints Current SeqNo
 		if hls.isTimeshift {
 			sec := int(hls.playlist.position)
-			if hls.timeshiftStop != 0 && sec >= hls.timeshiftStop {
+			if hls.tsStop != 0 && int64(sec) >= hls.tsStop {
 				isStop = true
 				return
 			}
@@ -2052,10 +2296,19 @@ func (hls *NicoHls) streamSync(uri string) {
 			//idx := len(hls.syncData) - 1
 			//fmt.Printf("syncData index=%d: %s\n", idx, hls.syncData[idx])
 		}
-
 		if err != nil || neterr != nil {
 			return NETWORK_ERROR
 		}
+
+		if !hls.nicoNoStreamlink || !hls.nicoNoYtdlp {
+			//DBにsegnoとdateを書き込み処理
+			hls.dbSyncSet(hls.syncData[0])
+			if ma := regexp.MustCompile(`"beginning_timestamp"\:(\d+)\,"sequence"\:(\d+)`).FindStringSubmatch(data); len(ma) > 0 {
+				sno, _ := strconv.ParseInt(ma[2], 10, 64)
+				hls.dbKVSet("seqStart", sno)
+			}
+		}
+
 		return OK
 	})
 }
@@ -2304,11 +2557,16 @@ func (hls *NicoHls) startMain() {
 						}
 					}
 				}
-				if uri, ok := objs.FindString(res, "data", "uri"); ok {
-					if (!playlistStarted) && uri != "" {
-						playlistStarted = true
-						hls.startPlaylist(uri)
+				if hls.nicoNoStreamlink && hls.nicoNoYtdlp {
+					if uri, ok := objs.FindString(res, "data", "uri"); ok {
+						if (!playlistStarted) && uri != "" {
+							playlistStarted = true
+							hls.startPlaylist(uri)
+						}
 					}
+				} else {
+					//hls.dbKVSet("startseq", fmt.Sprintf("%.f", float64(hls.timeshiftstart)))
+					hls.startExec(hls.nicoNoStreamlink, hls.nicoNoYtdlp)
 				}
 
 			case "disconnect":

@@ -456,6 +456,11 @@ func ExtractChunks(fileName string, skipHb, adjustVpos bool, seqnoStart, seqnoEn
 	seqstart := niconico.DbGetFirstSeqNo(db, 1)
 	seqend   := niconico.DbGetLastSeqNo(db, 1)
 
+	if niconico.DbGetCountMedia(db, 0) <= 0 {
+		seqstart = niconico.DbKVGetSeqNo(db, "seqStart")
+		seqend = niconico.DbKVGetSeqNo(db, "seqEnd")
+	}
+
 	if seqnoStart > 0 && seqnoStart > seqstart {
 		seqstart = seqnoStart
 	}
@@ -466,6 +471,11 @@ func ExtractChunks(fileName string, skipHb, adjustVpos bool, seqnoStart, seqnoEn
 	fmt.Println("seqend: ", seqend)
 
 	niconico.WriteComment(db, fileName, skipHb, adjustVpos, seqstart, seqend)
+
+	if niconico.DbGetCountMedia(db, 0) <= 0 {
+		done = true
+		return
+	}
 
 	rows, err := db.Query(niconico.SelMediaF(seqstart, seqend))
 	if err != nil {
@@ -528,6 +538,11 @@ func ConvertDB(fileName, ext string, skipHb, adjustVpos, forceConcat bool, seqno
 	seqstart := niconico.DbGetFirstSeqNo(db, 1)
 	seqend   := niconico.DbGetLastSeqNo(db, 1)
 
+	if niconico.DbGetCountMedia(db, 0) <= 0 {
+		seqstart = niconico.DbKVGetSeqNo(db, "seqStart")
+		seqend = niconico.DbKVGetSeqNo(db, "seqEnd")
+	}
+
 	if seqnoStart > 0 && seqnoStart > seqstart {
 		seqstart = seqnoStart
 	}
@@ -538,6 +553,12 @@ func ConvertDB(fileName, ext string, skipHb, adjustVpos, forceConcat bool, seqno
 	fmt.Println("seqend: ", seqend)
 
 	niconico.WriteComment(db, fileName, skipHb, adjustVpos, seqstart, seqend)
+
+	if niconico.DbGetCountMedia(db, 0) <= 0 {
+		done = true
+		nMp4s = 0
+		return
+	}
 
 	var zm *ZipMp4
 	defer func() {
@@ -598,6 +619,7 @@ func ConvertDB(fileName, ext string, skipHb, adjustVpos, forceConcat bool, seqno
 	for _, s := range zm.mp4List {
 		fmt.Println(s)
 	}
+
 	done = true
 	nMp4s = len(zm.mp4List)
 

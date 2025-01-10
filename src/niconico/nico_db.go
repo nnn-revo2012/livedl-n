@@ -724,6 +724,11 @@ func DbGetFirstSeqNo(db *sql.DB, flg int) (res int64) {
 	db.QueryRow(sql).Scan(&res)
 	return
 }
+func DbKVGetSeqNo(db *sql.DB, k string) (res int64) {
+	query := `SELECT v FROM kvs WHERE k = ?`
+	db.QueryRow(query, k).Scan(&res)
+	return
+}
 func DbGetCountMedia(db *sql.DB, flg int) (res int64) {
 	var sql string
 	if flg == 1 {

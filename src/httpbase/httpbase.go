@@ -31,7 +31,7 @@ func GetUserAgent() string {
 }
 
 var Client = &http.Client{
-	Timeout: time.Duration(5) * time.Second,
+	Timeout: time.Duration(30) * time.Second,
 	CheckRedirect: func(req *http.Request, via []*http.Request) (err error) {
 		if req != nil && via != nil && len(via) > 0 {
 			if len(via) >= 10 {

@@ -160,7 +160,7 @@ func main() {
 			fmt.Println(err)
 			os.Exit(1)
 		}
-		if hlsPlaylistEnd && opt.NicoAutoConvert {
+		if  (!opt.NicoNoStreamlink || !opt.NicoNoYtdlp) || hlsPlaylistEnd && opt.NicoAutoConvert {
 			done, nMp4s, skipped, err := zip2mp4.ConvertDB(dbname, opt.ConvExt, opt.NicoSkipHb, opt.NicoAdjustVpos, opt.NicoConvForceConcat, opt.NicoConvSeqnoStart, opt.NicoConvSeqnoEnd)
 			if err != nil {
 				fmt.Println(err)
@@ -175,6 +175,9 @@ func main() {
 					if 2 <= opt.NicoAutoDeleteDBMode {
 						os.Remove(dbname)
 					}
+				}
+				if !opt.NicoNoStreamlink || !opt.NicoNoYtdlp {
+					os.Remove(dbname)
 				}
 			}
 		}
