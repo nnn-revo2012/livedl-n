@@ -1,4 +1,4 @@
-livedl (20241221.56-windows-amd64)
+livedl (20250111.57-windows-amd64)
 Usage:
 livedl [COMMAND] options... [--] FILE
 
@@ -60,6 +60,10 @@ COMMAND:
   -nico-conv-force-concat        MP4への変換で画質変更または抜けがあっても分割しないように設定
   -nico-conv-force-concat=on     (+) 上記を有効に設定
   -nico-conv-force-concat=off    (+) 上記を無効に設定(デフォルト)
+  -nico-no-streamlink=on         (+) Streamlinkを使用しない(デフォルト)
+  -nico-no-streamlink=off        (+) Streamlinkを使用する
+  -nico-no-ytdlp=on              (+) yt-dlpを使用しない(デフォルト)
+  -nico-no-ytdlp=off             (+) yt-dlpを使用する
 
 ツイキャス録画用オプション:
   -tcas-retry=on                 (+) 録画終了後に再試行を行う
@@ -89,7 +93,7 @@ Youtube live録画用オプション:
 HTTP関連
   -http-skip-verify=on           (+) TLS証明書の認証をスキップする (32bit版対策)
   -http-skip-verify=off          (+) TLS証明書の認証をスキップしない (デフォルト)
-  -http-timeout <num>            (+) タイムアウト時間（秒）デフォルト: 5秒（最低値）
+  -http-timeout <num>            (+) タイムアウト時間（秒）デフォルト: 30秒（最低値）
 
 
 (+)のついたオプションは、次回も同じ設定が使用されることを示す。
@@ -103,6 +107,28 @@ FILE:
 
 
 ﻿更新履歴
+20250111.57
+- ニコ生接続時に実行ファイルを起動する機能追加
+  - yt-dlp / Streamlink のいずれかを起動
+  - user_sessionとfilenameを指定
+  - コメントのvposを合わせる処理追加(リアルタイム・タイムシフト)
+  - 終了時にすぐコメントを展開してsqlite3ファイルは削除
+  - オプション追加
+    -nico-no-streamlink=on         (+) Streamlinkを使用しない(デフォルト)
+    -nico-no-streamlink=off        (+) Streamlinkを使用する
+    -nico-no-ytdlp=on              (+) yt-dlpを使用しない(デフォルト)
+    -nico-no-ytdlp=off             (+) yt-dlpを使用する
+  - hls.timeshiftStart/tsStart/tsEndを分離
+  - tsStart/tsEnd関連の変数をfloat64&intからint64に変更
+  - 未実装
+    - 解像度の指定
+    - タイムシフトの時間指定
+- livedlのhttp-timeoutのデフォルトを5->30に変更
+- コメント出力フォーマット修正
+  - /move_order のリンクURLが間違っていたので修正
+- TCP/IP接続設定を変更
+- コメントサーバー接続時にproxyを使うように修正
+
 20241221.56
 - MessageServer(コメントサーバー)処理修正
   - MessageServerに接続時のTCP接続数をなるべく増やさないように修正
