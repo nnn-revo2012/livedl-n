@@ -475,6 +475,18 @@ func parseTime(arg string) (ret int64, err error) {
 
 	return
 }
+func SecondsToHHMMSS(seconds int64) string {
+	// 時間、分、秒を計算
+	if seconds <= 0 {
+		return ""
+	}
+	hours := seconds / 3600
+	minutes := (seconds % 3600) / 60
+	secs := seconds % 60
+
+	// フォーマットされた文字列を返す
+	return fmt.Sprintf("%d:%02d:%02d", hours, minutes, secs)
+}
 
 func ParseArgs() (opt Option) {
 	//dbAccountOpen()

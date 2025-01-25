@@ -105,7 +105,7 @@ type NicoHls struct {
 	finish      bool
 	commentDone bool
 
-	NicoSession string
+	nicoSession string
 	limitBw     int
 	limitBwOrig int
 	syncData    []string
@@ -279,7 +279,7 @@ func NewHls(opt options.Option, prop map[string]interface{}) (hls *NicoHls, err 
 		fastTimeshift:      opt.NicoFastTs || opt.NicoUltraFastTs,
 		ultrafastTimeshift: false,
 
-		NicoSession: opt.NicoSession,
+		nicoSession: opt.NicoSession,
 		limitBw:     limitBw,
 		limitBwOrig: limitBw,
 		nicoDebug:   opt.NicoDebug,
@@ -1037,9 +1037,25 @@ var split = func(data []byte, atEOF bool) (advance int, token []byte, err error)
 }
 
 //func execStreamlink(gm *gorman.GoroutineManager, uri, name string) (notSupport bool, err error) {
-func (hls *NicoHls) execStreamlink(uri, name, session string) (notSupport bool, err error) {
+func (hls *NicoHls) execStreamlink(uri, name string, tsstart, tsstop int64, limitBw int, session, proxy string) (notSupport bool, err error) {
 
-	cmd, stdout, stderr, err := streamlink.Open(uri, "--http-cookie=user_session="+session, "best", "--retry-max", "10", "-o", name)
+	var args []string
+	args = append(args, uri, "best")
+	if len(session) > 0 {
+		args = append(args, "--niconico-user-session", session)
+	}
+	if (tsstart > 0) {
+		args = append(args, "--niconico-timeshift-offset", options.SecondsToHHMMSS(tsstart))
+	}
+	if (tsstop > 0) {
+		args = append(args, "--hls-duration", options.SecondsToHHMMSS(tsstop - tsstart))
+	}
+	if len(proxy) > 0 {
+		args = append(args, "--http-proxy", proxy)
+	}
+	args = append(args, "--retry-max", "10", "-o", name)
+	//cmd, stdout, stderr, err := streamlink.Open(uri, "--http-cookie=user_session="+session, "best", "--retry-max", "10", "-o", name)
+	cmd, stdout, stderr, err := streamlink.Open(args...)
 	if err != nil {
 		return
 	}
@@ -1120,7 +1136,7 @@ func (hls *NicoHls) execStreamlink(uri, name, session string) (notSupport bool, 
 }
 
 //func execYoutube_dl(gm *gorman.GoroutineManager, uri, name string) (err error) {
-func (hls *NicoHls) execYoutube_dl(uri, name, session string) (err error) {
+func (hls *NicoHls) execYoutube_dl(uri, name string, tsstart, tsstop int64, limitbw int, session, proxy string) (err error) {
 	defer func() {
 		part := name + ".part"
 		if _, test := os.Stat(part); test == nil {
@@ -1130,7 +1146,20 @@ func (hls *NicoHls) execYoutube_dl(uri, name, session string) (err error) {
 		}
 	}()
 
-	cmd, stdout, stderr, err := youtube_dl.Open("--add-headers", "Cookie: user_session="+session, "-no-progress", "-o", name, uri)
+	var args []string
+	if len(session) > 0 {
+		args = append(args, "--add-headers", "Cookie: user_session="+session)
+	}
+	//if (tsstart > 0 || tsstop > 0) {
+	//	ttt := fmt.Sprintf("\"*%s-%s\"", options.SecondsToHHMMSS(tsstart), options.SecondsToHHMMSS(tsstop))
+	//	args = append(args, "--download-sections", ttt)
+	//}
+	if len(proxy) > 0 {
+		args = append(args, "--proxy", proxy)
+	}
+	args = append(args, "-no-progress", "-o", name, uri)
+	//cmd, stdout, stderr, err := youtube_dl.Open("--add-headers", "Cookie: user_session="+session, "-no-progress", "-o", name, uri)
+	cmd, stdout, stderr, err := youtube_dl.Open(args...)
 	if err != nil {
 		return
 	}
@@ -1221,15 +1250,17 @@ func (hls *NicoHls) startExec(nicoNoStreamlink, nicoNoYoutube_dl bool) (err erro
 		}
 
 		if !nicoNoStreamlink {
-			retry, err = hls.execStreamlink(uri, name, hls.NicoSession)
+			retry, err = hls.execStreamlink(uri, name, hls.tsStart, hls.tsStop, hls.limitBw, hls.nicoSession, hls.proxy)
 		}
 		if !hls.interrupted() {
 			if err != nil || retry || (nicoNoStreamlink && (!nicoNoYoutube_dl)) {
-				hls.execYoutube_dl(uri, name, hls.NicoSession)
+				hls.execYoutube_dl(uri, name, hls.tsStart, hls.tsStop, hls.limitBw, hls.nicoSession, hls.proxy)
 			}
 		}
 		if hls.interrupted() {
 			return GOT_SIGNAL
+		} else {
+			return MAIN_END_PROGRAM
 		}
 		return OK
 	})
@@ -2565,7 +2596,6 @@ func (hls *NicoHls) startMain() {
 						}
 					}
 				} else {
-					//hls.dbKVSet("startseq", fmt.Sprintf("%.f", float64(hls.timeshiftstart)))
 					hls.startExec(hls.nicoNoStreamlink, hls.nicoNoYtdlp)
 				}
 
