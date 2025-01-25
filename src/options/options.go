@@ -71,6 +71,7 @@ type Option struct {
 	HttpTimeout            int
 	NicoNoStreamlink       bool
 	NicoNoYtdlp            bool
+	NicoCommentOnly        bool
 }
 
 func getCmd() (cmd string) {
@@ -160,6 +161,8 @@ COMMAND:
   -nico-no-streamlink=off        (+) Streamlinkを使用する
   -nico-no-ytdlp=on              (+) yt-dlpを使用しない(デフォルト)
   -nico-no-ytdlp=off             (+) yt-dlpを使用する
+  -nico-comment-only=on          (+) コメントのみダウンロードする
+  -nico-comment-only=off         (+) 動画とコメントをダウンロードする(デフォルト)
 
 ツイキャス録画用オプション:
   -tcas-retry=on                 (+) 録画終了後に再試行を行う
@@ -521,7 +524,8 @@ func ParseArgs() (opt Option) {
 		IFNULL((SELECT v FROM conf WHERE k == "HttpSkipVerify"), 0),
 		IFNULL((SELECT v FROM conf WHERE k == "HttpTimeout"), 30),
 		IFNULL((SELECT v FROM conf WHERE k == "NicoNoStreamlink"), 1),
-		IFNULL((SELECT v FROM conf WHERE k == "NicoNoYtdlp"), 1);
+		IFNULL((SELECT v FROM conf WHERE k == "NicoNoYtdlp"), 1),
+		IFNULL((SELECT v FROM conf WHERE k == "NicoCommentOnly"), 0);
 	`).Scan(
 		&opt.NicoFormat,
 		&opt.NicoLimitBw,
@@ -546,6 +550,7 @@ func ParseArgs() (opt Option) {
 		&opt.HttpTimeout,
 		&opt.NicoNoStreamlink,
 		&opt.NicoNoYtdlp,
+		&opt.NicoCommentOnly,
 	)
 	if err != nil {
 		log.Println(err)
@@ -1186,6 +1191,18 @@ func ParseArgs() (opt Option) {
 			}
 			return nil
 		}},
+		Parser{regexp.MustCompile(`\A(?i)--?nico-?comment-?only(?:=(on|off))?\z`), func() (err error) {
+			if strings.EqualFold(match[1], "on") {
+				opt.NicoCommentOnly = true
+				dbConfSet(db, "NicoCommentOnly", opt.NicoCommentOnly)
+			} else if strings.EqualFold(match[1], "off") {
+				opt.NicoCommentOnly = false
+				dbConfSet(db, "NicoCommentOnly", opt.NicoCommentOnly)
+			} else {
+				opt.NicoCommentOnly = false
+			}
+			return nil
+		}},
 	}
 
 	checkFILE := func(arg string) bool {
@@ -1314,6 +1331,7 @@ LB_ARG:
 		fmt.Printf("Conf(NicoAdjustVpos): %#v\n", opt.NicoAdjustVpos)
 		fmt.Printf("Conf(NicoNoStreamlink): %#v\n", opt.NicoNoStreamlink)
 		fmt.Printf("Conf(NicoNoYtdlp): %#v\n", opt.NicoNoYtdlp)
+		fmt.Printf("Conf(NicoCommentOnly): %#v\n", opt.NicoCommentOnly)
 
 	case "YOUTUBE":
 		fmt.Printf("Conf(YtNoStreamlink): %#v\n", opt.YtNoStreamlink)

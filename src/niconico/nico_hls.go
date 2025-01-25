@@ -102,8 +102,9 @@ type NicoHls struct {
 	fastTimeshiftOrig      bool
 	ultrafastTimeshiftOrig bool
 
-	finish      bool
-	commentDone bool
+	finish          bool
+	commentDone     bool
+	nicoCommentOnly bool
 
 	nicoSession string
 	limitBw     int
@@ -274,6 +275,7 @@ func NewHls(opt options.Option, prop map[string]interface{}) (hls *NicoHls, err 
 		nicoLiveId: pid,
 		nicoNoStreamlink: opt.NicoNoStreamlink,
 		nicoNoYtdlp: opt.NicoNoYtdlp,
+		nicoCommentOnly: opt.NicoCommentOnly,
 
 		isTimeshift:        timeshift,
 		fastTimeshift:      opt.NicoFastTs || opt.NicoUltraFastTs,
@@ -325,7 +327,7 @@ func NewHls(opt options.Option, prop map[string]interface{}) (hls *NicoHls, err 
 				hls.dbKVSet(k, v)
 			}
 		}
-		if !hls.nicoNoStreamlink || !hls.nicoNoYtdlp {
+		if !hls.nicoNoStreamlink || !hls.nicoNoYtdlp || hls.nicoCommentOnly {
 			sno := hls.tsStart / 5
 			hls.dbKVSet("seqStart", sno)
 			eno := hls.tsStop / 5
@@ -923,6 +925,9 @@ func (hls *NicoHls) checkReturnCode(code int) {
 
 	case COMMENT_DONE:
 		hls.commentDone = true
+		if hls.nicoCommentOnly {
+			hls.finish = true
+		}
 		if hls.finish {
 			hls.stopPCGoroutines()
 		}
@@ -2331,7 +2336,7 @@ func (hls *NicoHls) streamSync(uri string) {
 			return NETWORK_ERROR
 		}
 
-		if !hls.nicoNoStreamlink || !hls.nicoNoYtdlp {
+		if !hls.nicoNoStreamlink || !hls.nicoNoYtdlp || hls.nicoCommentOnly {
 			//DBにsegnoとdateを書き込み処理
 			hls.dbSyncSet(hls.syncData[0])
 			if ma := regexp.MustCompile(`"beginning_timestamp"\:(\d+)\,"sequence"\:(\d+)`).FindStringSubmatch(data); len(ma) > 0 {
@@ -2588,15 +2593,17 @@ func (hls *NicoHls) startMain() {
 						}
 					}
 				}
-				if hls.nicoNoStreamlink && hls.nicoNoYtdlp {
-					if uri, ok := objs.FindString(res, "data", "uri"); ok {
-						if (!playlistStarted) && uri != "" {
-							playlistStarted = true
-							hls.startPlaylist(uri)
+				if !hls.nicoCommentOnly {
+					if hls.nicoNoStreamlink && hls.nicoNoYtdlp {
+						if uri, ok := objs.FindString(res, "data", "uri"); ok {
+							if (!playlistStarted) && uri != "" {
+								playlistStarted = true
+								hls.startPlaylist(uri)
+							}
 						}
+					} else {
+						hls.startExec(hls.nicoNoStreamlink, hls.nicoNoYtdlp)
 					}
-				} else {
-					hls.startExec(hls.nicoNoStreamlink, hls.nicoNoYtdlp)
 				}
 
 			case "disconnect":
