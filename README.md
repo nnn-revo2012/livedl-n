@@ -2,10 +2,10 @@
 
 Nicolive recording tool that supports new distribution (HTML5).  
 
-## This version is require golang 1.18.x or higher and module-aware mode.   
+## This version is require golang 1.20.x or higher and module-aware mode.   
 See [Migrating to Go Modules](https://blog.golang.org/migrating-to-go-modules)  
-### **golang 1.17.x or lower**  
-If you use **golang 1.17.x or lower**, use golang 1.18.x or higher.  
+### **golang 1.19.x or lower**  
+If you use **golang 1.19.x or lower**, use golang 1.20.x or higher.  
 
 ## Get the latest livedl source program  
 

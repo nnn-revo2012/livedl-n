@@ -1,4 +1,4 @@
-livedl (20250111.57-windows-amd64)
+livedl (20250126.58-windows-amd64)
 Usage:
 livedl [COMMAND] options... [--] FILE
 
@@ -64,6 +64,8 @@ COMMAND:
   -nico-no-streamlink=off        (+) Streamlinkを使用する
   -nico-no-ytdlp=on              (+) yt-dlpを使用しない(デフォルト)
   -nico-no-ytdlp=off             (+) yt-dlpを使用する
+  -nico-comment-only=on          (+) コメントのみダウンロードする
+  -nico-comment-only=off         (+) 動画とコメントをダウンロードする(デフォルト)
 
 ツイキャス録画用オプション:
   -tcas-retry=on                 (+) 録画終了後に再試行を行う
@@ -76,13 +78,13 @@ Youtube live録画用オプション:
   -yt-api-key <key>              (+) YouTube Data API v3 keyを設定する(未使用)
   -yt-no-streamlink=on           (+) Streamlinkを使用しない
   -yt-no-streamlink=off          (+) Streamlinkを使用する(デフォルト)
-  -yt-no-youtube-dl=on           (+) youtube-dlを使用しない
-  -yt-no-youtube-dl=off          (+) youtube-dlを使用する(デフォルト)
+  -yt-no-youtube-dl=on           (+) yt-dlpを使用しない
+  -yt-no-youtube-dl=off          (+) yt-dlpを使用する(デフォルト)
   -yt-comment-start              YouTube Liveアーカイブでコメント取得開始時間（秒）を指定
                                  ＜分＞:＜秒＞ | ＜時＞:＜分＞:＜秒＞ の形式でも指定可能
                                  0：続きからコメント取得  1：最初からコメント取得
-  -yt-emoji=on                   (+) コメントにemojiを表示する(デフォルト)
-  -yt-emoji=off                  (+) コメントにemojiを表示しない
+  -yt-emoji=on                   (+) コメントにAlternate emojisを表示する(デフォルト)
+  -yt-emoji=off                  (+) コメントにAlternate emojisを表示しない
 
 変換オプション:
   -extract-chunks=off            (+) -d2mで動画ファイルに書き出す(デフォルト)
@@ -105,8 +107,16 @@ FILE:
   ツイキャス/twitcasting:
     https://twitcasting.tv/XXXXX
 
-
 ﻿更新履歴
+20250126.58
+- ニコ生接続時に実行ファイルを起動する機能
+  - タイムシフト時間指定対応(yt-dlpは時間指定で動画取得できないので不可)
+  - proxy対応
+  - 実行ファイル終了時にlivedlも終了するよう修正
+- コメントのみダウンロードする機能追加
+  - -nico-comment-only=on コメントのみダウンロード
+    -nico-comment-only=off 動画とコメントをダウンロード（デフォルト）
+
 20250111.57
 - ニコ生接続時に実行ファイルを起動する機能追加
   - yt-dlp / Streamlink のいずれかを起動
