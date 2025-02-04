@@ -72,6 +72,7 @@ type NicoHls struct {
 	nicoLiveId       string
 	nicoNoStreamlink bool
 	nicoNoYtdlp      bool
+	isDms            bool
 
 	commentStarted    bool
 	mtxCommentStarted sync.Mutex
@@ -276,6 +277,7 @@ func NewHls(opt options.Option, prop map[string]interface{}) (hls *NicoHls, err 
 		nicoNoStreamlink: opt.NicoNoStreamlink,
 		nicoNoYtdlp: opt.NicoNoYtdlp,
 		nicoCommentOnly: opt.NicoCommentOnly,
+		isDms: false,
 
 		isTimeshift:        timeshift,
 		fastTimeshift:      opt.NicoFastTs || opt.NicoUltraFastTs,
@@ -2586,6 +2588,22 @@ func (hls *NicoHls) startMain() {
 				}
 
 			case "stream":
+				//新動画サーバーかどうかのチェック
+				if uri, ok := objs.FindString(res, "data", "uri"); ok {
+					if (!playlistStarted) && uri != "" {
+						if strings.Contains(uri, "variant") {
+							fmt.Println("新サーバーの動画には対応していません コメントのみになります")
+							hls.isDms = true
+							if hls.isTimeshift {
+								sno := hls.tsStart / 5
+								hls.dbKVSet("seqStart", sno)
+								eno := hls.tsStop / 5
+								hls.dbKVSet("seqEnd", eno)
+							}
+							hls.nicoCommentOnly = true
+						}
+					}
+				}
 				if !hls.isTimeshift {
 					if sync_uri, ok := objs.FindString(res, "data", "syncUri"); ok {
 						if (!playlistStarted) && sync_uri != "" {
@@ -2595,14 +2613,10 @@ func (hls *NicoHls) startMain() {
 				}
 				if !hls.nicoCommentOnly {
 					if hls.nicoNoStreamlink && hls.nicoNoYtdlp {
-						if uri, ok := objs.FindString(res, "data", "uri"); ok {
-							if (!playlistStarted) && uri != "" {
-								if strings.Contains(uri, "variant.m3u8") {
-									fmt.Println("新サーバーの動画には対応していません")
-								} else {
-									playlistStarted = true
-									hls.startPlaylist(uri)
-								}
+						if !hls.isDms {	//DMCサーバー
+							if uri, ok := objs.FindString(res, "data", "uri"); ok {
+								playlistStarted = true
+								hls.startPlaylist(uri)
 							}
 						}
 					} else {
