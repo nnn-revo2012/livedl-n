@@ -1,4 +1,4 @@
-livedl (20250204.59-windows-amd64)
+livedl (20250205.59a-windows-amd64)
 Usage:
 livedl [COMMAND] options... [--] FILE
 
@@ -108,6 +108,13 @@ FILE:
     https://twitcasting.tv/XXXXX
 
 ﻿更新履歴
+20250205.59a
+- ニコニコ新動画サーバー対応
+  - 新動画サーバーの番組に接続した場合、以下のメッセージ表示
+    「新サーバーの動画には対応していません コメントのみになります」
+  - vpos補正されるように修正
+  - -nico-comment-only と同様の動作になるように修正
+
 20250204.59
 - ニコニコ新動画サーバー対応(暫定)
   - 新動画サーバーの番組に接続するとMasterfileが403エラーで接続を繰り返す
