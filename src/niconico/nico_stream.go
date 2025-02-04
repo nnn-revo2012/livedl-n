@@ -12,18 +12,18 @@ func NewBinaryStream() *BinaryStream {
 	}
 }
 
-func (bs *BinaryStream) AddBuffer(data []byte) {
-	bs.buffer = append(bs.buffer, data...)
+func (bs *BinaryStream) AddBuffer(buf *BinaryStream, data []byte) {
+	buf.buffer = append(buf.buffer, data...)
 }
 
-func (bs *BinaryStream) ClearBuffer() {
-	bs.buffer = bs.buffer[:0]
-	bs.offset = 0
+func (bs *BinaryStream) ClearBuffer(buf *BinaryStream) {
+	buf.buffer = buf.buffer[:0]
+	buf.offset = 0
 }
 
-func (bs *BinaryStream) decodeVarint(t int) (*varintResult) {
+func (bs *BinaryStream) decodeVarint(buf *BinaryStream, t int) (*varintResult) {
 	a := 0
-	o := len(bs.buffer)
+	o := len(buf.buffer)
 	i := 0
 
 	for {
@@ -31,7 +31,7 @@ func (bs *BinaryStream) decodeVarint(t int) (*varintResult) {
 			return nil
 		}
 
-		b := bs.buffer[t]
+		b := buf.buffer[t]
 		r := (b & 128) != 0
 		a |= int(b & 127) << i
 
@@ -52,15 +52,15 @@ type varintResult struct {
 	offset int
 }
 
-func (bs *BinaryStream) Read() <- chan []byte {
+func (bs *BinaryStream) Read(buf *BinaryStream) <- chan []byte {
 	results := make(chan []byte)
 
 	go func() {
 		defer close(results)
-		offset := bs.offset
+		offset := buf.offset
 
 		for {
-			e := bs.decodeVarint(offset)
+			e := bs.decodeVarint(buf, offset)
 			if e == nil {
 				break
 			}
@@ -69,15 +69,15 @@ func (bs *BinaryStream) Read() <- chan []byte {
 			start := newOffset + 1
 			rEnd := start + value
 
-			if len(bs.buffer) < rEnd {
+			if len(buf.buffer) < rEnd {
 				break
 			}
 
 			offset = rEnd
-			bs.offset = rEnd
+			buf.offset = rEnd
 			if rEnd - start > 0 {
 				binaryData := make([]byte, rEnd-start)
-				binaryData = bs.buffer[start:rEnd]
+				binaryData = buf.buffer[start:rEnd]
 				results <- binaryData
 			} else {
 				break

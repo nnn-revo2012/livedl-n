@@ -184,9 +184,9 @@ func (msc *MessageServer) SetNextStreamAt(nextat string) error {
 func (msc *MessageServer) messageData(data []byte) error {
 	//log.Printf("message received %d bytes.\n", len(data))
 
-	msc.stream.AddBuffer(data)
+	msc.stream.AddBuffer(msc.stream, data)
 
-	items := msc.stream.Read()
+	items := msc.stream.Read(msc.stream)
 
 	for item := range items {
 		entry := &pb.ChunkedEntry{}
@@ -200,7 +200,7 @@ func (msc *MessageServer) messageData(data []byte) error {
 		}
 	}
 
-	msc.stream.ClearBuffer()
+	msc.stream.ClearBuffer(msc.stream)
 
 	return nil
 }

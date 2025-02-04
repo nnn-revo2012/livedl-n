@@ -2597,8 +2597,12 @@ func (hls *NicoHls) startMain() {
 					if hls.nicoNoStreamlink && hls.nicoNoYtdlp {
 						if uri, ok := objs.FindString(res, "data", "uri"); ok {
 							if (!playlistStarted) && uri != "" {
-								playlistStarted = true
-								hls.startPlaylist(uri)
+								if strings.Contains(uri, "variant.m3u8") {
+									fmt.Println("新サーバーの動画には対応していません")
+								} else {
+									playlistStarted = true
+									hls.startPlaylist(uri)
+								}
 							}
 						}
 					} else {

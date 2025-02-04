@@ -142,9 +142,10 @@ func (ssc *SegmentServer) Disconnect() bool {
 func (ssc *SegmentServer) segmentData(data []byte) error {
 	//log.Printf(ssc.servername+" received %d bytes.\n", len(data))
 
-	ssc.stream.AddBuffer(data)
+	buf := NewBinaryStream()
+	ssc.stream.AddBuffer(buf, data)
 
-	items := ssc.stream.Read()
+	items := ssc.stream.Read(buf)
 
 	for item := range items {
 		message := &pb.ChunkedMessage{}
@@ -158,7 +159,7 @@ func (ssc *SegmentServer) segmentData(data []byte) error {
 		}
 	}
 
-	ssc.stream.ClearBuffer()
+	ssc.stream.ClearBuffer(buf)
 
 	return nil
 }
