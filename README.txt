@@ -1,4 +1,4 @@
-livedl (20250126.58-windows-amd64)
+livedl (20250204.59-windows-amd64)
 Usage:
 livedl [COMMAND] options... [--] FILE
 
@@ -108,6 +108,14 @@ FILE:
     https://twitcasting.tv/XXXXX
 
 ﻿更新履歴
+20250204.59
+- ニコニコ新動画サーバー対応(暫定)
+  - 新動画サーバーの番組に接続するとMasterfileが403エラーで接続を繰り返す
+    ので接続しないように修正
+    *現状でvposの補正ができません
+- MessageServer処理修正
+  - Segmentデーター処理毎にbufferを新規作成するように修正
+
 20250126.58
 - ニコ生接続時に実行ファイルを起動する機能
   - タイムシフト時間指定対応(yt-dlpは時間指定で動画取得できないので不可)
