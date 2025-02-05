@@ -111,6 +111,7 @@ type NicoHls struct {
 	limitBw     int
 	limitBwOrig int
 	syncData    []string
+	serverTime  int64
 
 	nicoDebug     bool
 	msgErrorCount int
@@ -148,6 +149,19 @@ func NewHls(opt options.Option, prop map[string]interface{}) (hls *NicoHls, err 
 	var timeshift bool
 	if status, ok := prop["status"].(string); ok && status == "ENDED" {
 		timeshift = true
+	}
+
+	var isdms bool
+	if streamType, ok := prop["streamType"].(string); ok && streamType == "dlive" {
+		isdms = true
+		fmt.Println("新動画サーバーの動画には対応していません コメントのみになります")
+	}
+
+	var servertime int64
+	if t, ok := prop["serverTime"]; ok {
+		if st, ok := t.(float64); ok {
+			servertime = int64(st)
+		}
 	}
 
 	var pid string
@@ -277,7 +291,7 @@ func NewHls(opt options.Option, prop map[string]interface{}) (hls *NicoHls, err 
 		nicoNoStreamlink: opt.NicoNoStreamlink,
 		nicoNoYtdlp: opt.NicoNoYtdlp,
 		nicoCommentOnly: opt.NicoCommentOnly,
-		isDms: false,
+		isDms: isdms,
 
 		isTimeshift:        timeshift,
 		fastTimeshift:      opt.NicoFastTs || opt.NicoUltraFastTs,
@@ -287,6 +301,7 @@ func NewHls(opt options.Option, prop map[string]interface{}) (hls *NicoHls, err 
 		limitBw:     limitBw,
 		limitBwOrig: limitBw,
 		nicoDebug:   opt.NicoDebug,
+		serverTime:  servertime,
 
 		gmPlst: gorman.WithChecker(func(c int) { hls.checkReturnCode(c) }),
 		gmCmnt: gorman.WithChecker(func(c int) { hls.checkReturnCode(c) }),
@@ -329,7 +344,7 @@ func NewHls(opt options.Option, prop map[string]interface{}) (hls *NicoHls, err 
 				hls.dbKVSet(k, v)
 			}
 		}
-		if !hls.nicoNoStreamlink || !hls.nicoNoYtdlp || hls.nicoCommentOnly {
+		if !hls.nicoNoStreamlink || !hls.nicoNoYtdlp || hls.nicoCommentOnly || hls.isDms {
 			sno := hls.tsStart / 5
 			hls.dbKVSet("seqStart", sno)
 			eno := hls.tsStop / 5
@@ -2588,26 +2603,20 @@ func (hls *NicoHls) startMain() {
 				}
 
 			case "stream":
-				//新動画サーバーかどうかのチェック
-				if uri, ok := objs.FindString(res, "data", "uri"); ok {
-					if (!playlistStarted) && uri != "" {
-						if strings.Contains(uri, "variant") {
-							fmt.Println("新サーバーの動画には対応していません コメントのみになります")
-							hls.isDms = true
-							if hls.isTimeshift {
-								sno := hls.tsStart / 5
-								hls.dbKVSet("seqStart", sno)
-								eno := hls.tsStop / 5
-								hls.dbKVSet("seqEnd", eno)
-							}
-							hls.nicoCommentOnly = true
-						}
-					}
-				}
 				if !hls.isTimeshift {
-					if sync_uri, ok := objs.FindString(res, "data", "syncUri"); ok {
-						if (!playlistStarted) && sync_uri != "" {
-							hls.streamSync(sync_uri)
+					if !hls.isDms {
+						if sync_uri, ok := objs.FindString(res, "data", "syncUri"); ok {
+							if (!playlistStarted) && sync_uri != "" {
+								hls.streamSync(sync_uri)
+							}
+						}
+					} else {
+						//DMSサーバーの場合のstreanSync処理
+						if !playlistStarted {
+							//DBにsegnoとdateを書き込み処理
+							str := fmt.Sprintf("\"encoding_id\":\"1\",\"beginning_timestamp\":%d,\"sequence\":0", hls.serverTime)
+							hls.dbSyncSet(str)
+							hls.dbKVSet("seqStart", int64(0))
 						}
 					}
 				}
@@ -2618,6 +2627,8 @@ func (hls *NicoHls) startMain() {
 								playlistStarted = true
 								hls.startPlaylist(uri)
 							}
+						} else {
+							hls.nicoCommentOnly = true
 						}
 					} else {
 						hls.startExec(hls.nicoNoStreamlink, hls.nicoNoYtdlp)
@@ -3186,6 +3197,8 @@ func NicoRecHls(opt options.Option) (done, playlistEnd, notLogin, reserved bool,
 		"//myId":       []string{"user", "id"},          // "\d+"
 		"isLoggedIn":   []string{"user", "isLoggedIn"},  // bool
 		"//myNickname": []string{"user", "nickname"},    // string
+		//stream
+		"streamType":   []string{"stream", "type"},      // "dmc" or "dlive"
 	}
 
 	kv := map[string]interface{}{}
