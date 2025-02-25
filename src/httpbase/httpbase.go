@@ -158,6 +158,65 @@ func SetTimeout(timeout int) (err error) {
 	return
 }
 
+func SetCookies(cookies []interface{}) (err error) {
+	err = nil
+	//if hls.nicoDebug {
+	//	fmt.Fprintf(os.Stderr, "cookies: %v\n",cookies)
+	//}
+	var new_cookies []*http.Cookie
+	//set_cookie_url, _ := url.Parse("https://www.nicovideo.jp/")
+	for _, value := range cookies {
+		//fmt.Printf("*** cookie: %v\n", value)
+		ma := value.(map[string]interface{})
+		var _name, _value, _domain, _expires, _path string
+		var _secure bool
+		for k, v := range ma {
+			switch vv := v.(type) {
+			case string:
+				//fmt.Println(k, "is string", vv)
+				switch k {
+				case "name":
+					_name = vv
+				case "value":
+					_value = vv
+				case "domain":
+					_domain = vv
+				case "expires":
+					_expires = vv
+					fmt.Println("expires: ", _expires)
+				case "path":
+					_path = vv
+				default:
+				}
+			case bool:
+				//fmt.Println(k, "is bool", vv)
+				_secure = false
+				if vv {
+					_secure = true
+				}
+			default:
+				//fmt.Println(k, "is of a type I don't know how to handle")
+			}
+		}
+		_cookie := &http.Cookie{Name: _name, 
+			Value: _value,
+			//Expires: _expires,
+			Domain: _domain,
+			Path: _path,
+			Secure: _secure,
+		}
+		//if hls.nicoDebug {
+		//	fmt.Fprintf(os.Stderr, "cookie: %v\n",_cookie)
+		//}
+		new_cookies = append(new_cookies, _cookie)
+	}
+	fmt.Fprintf(os.Stderr, "cookies: %T\n",new_cookies)
+	fmt.Fprintf(os.Stderr, "cookies: %v\n",new_cookies)
+	//Client.Jar.SetCookies(set_cookie_url, []*http.Cookie{cookie})
+	//Client.Jar.SetCookies(set_cookie_url, new_cookies)
+	return
+}
+
 func httpBase(method, uri string, header map[string]string, jar *cookiejar.Jar, body io.Reader) (resp *http.Response, err, neterr error) {
 	req, err := http.NewRequest(method, uri, body)
 	if err != nil {

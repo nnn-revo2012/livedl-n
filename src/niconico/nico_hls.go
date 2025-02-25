@@ -2541,6 +2541,8 @@ func (hls *NicoHls) startMain() {
 					"quality":  hls.quality, //"abr", // high
 					"protocol": "hls",
 					"latency":  "high",
+					"accessRightMethod": "single_cookie", //dliveで追加された
+					"chasePlay":false,
 				},
 				"room": OBJ{
 					"protocol":    "webSocket",
@@ -2649,6 +2651,14 @@ func (hls *NicoHls) startMain() {
 								hls.startPlaylist(uri)
 							}
 						} else {	//Dliveサーバー
+							if _cookies, ok := objs.FindArray(res, "data", "cookies"); ok {
+								//if hls.nicoDebug {
+								//	fmt.Fprintf(os.Stderr, "cookies: %v\n",_cookies)
+								//}
+								//cookieを追加
+								httpbase.SetCookies(_cookies)
+								//masterとplaylist表示
+							}
 							hls.nicoCommentOnly = true
 						}
 					} else {
