@@ -158,17 +158,14 @@ func SetTimeout(timeout int) (err error) {
 	return
 }
 
-func SetCookies(cookies []interface{}) (err error) {
+func GetCookies(cookies []interface{}) (new_cookies []*http.Cookie, err error) {
 	err = nil
-	//if hls.nicoDebug {
-	//	fmt.Fprintf(os.Stderr, "cookies: %v\n",cookies)
-	//}
-	var new_cookies []*http.Cookie
-	//set_cookie_url, _ := url.Parse("https://www.nicovideo.jp/")
+	const layout = "Mon, 02 Jan 2006 15:04:05 GMT"
 	for _, value := range cookies {
 		//fmt.Printf("*** cookie: %v\n", value)
 		ma := value.(map[string]interface{})
-		var _name, _value, _domain, _expires, _path string
+		var _name, _value, _domain, _path string
+		var _expires time.Time
 		var _secure bool
 		for k, v := range ma {
 			switch vv := v.(type) {
@@ -182,8 +179,10 @@ func SetCookies(cookies []interface{}) (err error) {
 				case "domain":
 					_domain = vv
 				case "expires":
-					_expires = vv
-					fmt.Println("expires: ", _expires)
+					t, err := time.Parse(layout, vv)
+					if err == nil {
+						_expires = t
+					}
 				case "path":
 					_path = vv
 				default:
@@ -200,7 +199,7 @@ func SetCookies(cookies []interface{}) (err error) {
 		}
 		_cookie := &http.Cookie{Name: _name, 
 			Value: _value,
-			//Expires: _expires,
+			Expires: _expires,
 			Domain: _domain,
 			Path: _path,
 			Secure: _secure,
@@ -210,14 +209,11 @@ func SetCookies(cookies []interface{}) (err error) {
 		//}
 		new_cookies = append(new_cookies, _cookie)
 	}
-	fmt.Fprintf(os.Stderr, "cookies: %T\n",new_cookies)
-	fmt.Fprintf(os.Stderr, "cookies: %v\n",new_cookies)
-	//Client.Jar.SetCookies(set_cookie_url, []*http.Cookie{cookie})
-	//Client.Jar.SetCookies(set_cookie_url, new_cookies)
+	//fmt.Fprintf(os.Stderr, "cookies: %v\n",new_cookies)
 	return
 }
 
-func httpBase(method, uri string, header map[string]string, jar *cookiejar.Jar, body io.Reader) (resp *http.Response, err, neterr error) {
+func httpBase(method, uri string, header map[string]string, jar *cookiejar.Jar, cookies []*http.Cookie, body io.Reader) (resp *http.Response, err, neterr error) {
 	req, err := http.NewRequest(method, uri, body)
 	if err != nil {
 		return
@@ -227,6 +223,12 @@ func httpBase(method, uri string, header map[string]string, jar *cookiejar.Jar, 
 
 	for k, v := range header {
 		req.Header.Set(k, v)
+	}
+
+	if cookies != nil {
+		for _, v := range header {
+			req.Header.Set("Set-Cookie", v)
+		}
 	}
 
 	if (jar != nil) {
@@ -243,17 +245,17 @@ func httpBase(method, uri string, header map[string]string, jar *cookiejar.Jar, 
 	}
 	return
 }
-func Get(uri string, header map[string]string, jar *cookiejar.Jar) (*http.Response, error, error) {
-	return httpBase("GET", uri, header, jar, nil)
+func Get(uri string, header map[string]string, jar *cookiejar.Jar, cookies []*http.Cookie) (*http.Response, error, error) {
+	return httpBase("GET", uri, header, jar, cookies, nil)
 }
-func PostForm(uri string, header map[string]string, jar *cookiejar.Jar, val url.Values) (*http.Response, error, error) {
+func PostForm(uri string, header map[string]string, jar *cookiejar.Jar, cookies []*http.Cookie, val url.Values) (*http.Response, error, error) {
 	if header == nil {
 		header = make(map[string]string)
 	}
 	header["Content-Type"] = "application/x-www-form-urlencoded; charset=utf-8"
-	return httpBase("POST", uri, header, jar, strings.NewReader(val.Encode()))
+	return httpBase("POST", uri, header, jar, cookies, strings.NewReader(val.Encode()))
 }
-func reqJson(method, uri string, header map[string]string, jar *cookiejar.Jar, data interface{}) (
+func reqJson(method, uri string, header map[string]string, jar *cookiejar.Jar, cookies []*http.Cookie, data interface{}) (
 	*http.Response, error, error) {
 	encoded, err := json.Marshal(data)
 	if err != nil {
@@ -265,22 +267,22 @@ func reqJson(method, uri string, header map[string]string, jar *cookiejar.Jar, d
 	}
 	header["Content-Type"] = "application/json"
 
-	return httpBase(method, uri, header, jar, bytes.NewReader(encoded))
+	return httpBase(method, uri, header, jar, cookies, bytes.NewReader(encoded))
 }
-func PostJson(uri string, header map[string]string, jar *cookiejar.Jar, data interface{}) (*http.Response, error, error) {
-	return reqJson("POST", uri, header, jar, data)
+func PostJson(uri string, header map[string]string, jar *cookiejar.Jar, cookies []*http.Cookie, data interface{}) (*http.Response, error, error) {
+	return reqJson("POST", uri, header, jar, cookies, data)
 }
-func PutJson(uri string, header map[string]string, jar *cookiejar.Jar, data interface{}) (*http.Response, error, error) {
-	return reqJson("PUT", uri, header, jar, data)
+func PutJson(uri string, header map[string]string, jar *cookiejar.Jar, cookies []*http.Cookie, data interface{}) (*http.Response, error, error) {
+	return reqJson("PUT", uri, header, jar, cookies, data)
 }
-func PostData(uri string, header map[string]string, jar *cookiejar.Jar, data io.Reader) (*http.Response, error, error) {
+func PostData(uri string, header map[string]string, jar *cookiejar.Jar, cookies []*http.Cookie, data io.Reader) (*http.Response, error, error) {
 	if header == nil {
 		header = make(map[string]string)
 	}
-	return httpBase("POST", uri, header, jar, data)
+	return httpBase("POST", uri, header, jar, cookies, data)
 }
-func GetBytes(uri string, header map[string]string, jar *cookiejar.Jar) (code int, buff []byte, err, neterr error) {
-	resp, err, neterr := Get(uri, header, jar)
+func GetBytes(uri string, header map[string]string, jar *cookiejar.Jar, cookies []*http.Cookie) (code int, buff []byte, err, neterr error) {
+	resp, err, neterr := Get(uri, header, jar, cookies)
 	if err != nil {
 		return
 	}

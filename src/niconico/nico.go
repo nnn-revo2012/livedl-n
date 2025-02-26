@@ -50,6 +50,7 @@ func NicoLogin(opt options.Option) (err error) {
 			"Referer": "https://account.nicovideo.jp/login",
 		},
 		jar,
+		nil,
 		url.Values{"mail_tel": {id}, "password": {pass}},
 	)
 	if err != nil {
@@ -84,7 +85,8 @@ func NicoLogin(opt options.Option) (err error) {
 				"Origin":  "https://account.nicovideo.jp",
 				"Referer": "https://account.nicovideo.jp/login",
 			},
-			jar)
+			jar,
+			nil)
 		if err != nil {
 			err = fmt.Errorf("login MFA error")
 			return
@@ -142,6 +144,7 @@ func NicoLogin(opt options.Option) (err error) {
 				"Referer": "https://account.nicovideo.jp/login",
 			},
 			jar,
+			nil,
 			url.Values{"otp": {otp}},
 		)
 		if err != nil {
@@ -235,7 +238,7 @@ func TestRun(opt options.Option) (err error) {
 			opt.NicoTestTimeout = 12
 		}
 
-		resp, e, nete := httpbase.Get("https://live.nicovideo.jp/api/getalertinfo", nil, nil)
+		resp, e, nete := httpbase.Get("https://live.nicovideo.jp/api/getalertinfo", nil, nil, nil)
 		if e != nil {
 			err = e
 			return

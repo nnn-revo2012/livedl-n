@@ -52,6 +52,7 @@ type syncData struct {
 }
 type playlist struct {
 	uri                *url.URL
+	uriAudio           *url.URL
 	uriMaster          *url.URL
 	uriTimeshiftMaster *url.URL
 	bandwidth          int
@@ -1793,13 +1794,13 @@ func urlJoin(base *url.URL, uri string) (res *url.URL, err error) {
 	return
 }
 
-func getStringBase(uri string, header map[string]string) (s string, code int, t int64, err, neterr error) {
+func getStringBase(uri string, header map[string]string, cookies []*http.Cookie) (s string, code int, t int64, err, neterr error) {
 	start := time.Now().UnixNano()
 	defer func() {
 		t = (time.Now().UnixNano() - start) / (1000 * 1000)
 	}()
 
-	resp, err, neterr := httpbase.Get(uri, header, nil)
+	resp, err, neterr := httpbase.Get(uri, header, nil, cookies)
 	if err != nil {
 		return
 	}
@@ -1819,19 +1820,19 @@ func getStringBase(uri string, header map[string]string) (s string, code int, t 
 
 	return
 }
-func getString(uri string) (s string, code int, t int64, err, neterr error) {
-	return getStringBase(uri, nil)
+func getString(uri string, cookies []*http.Cookie) (s string, code int, t int64, err, neterr error) {
+	return getStringBase(uri, nil, cookies)
 }
-func getStringHeader(uri string, header map[string]string) (s string, code int, t int64, err, neterr error) {
-	return getStringBase(uri, header)
+func getStringHeader(uri string, header map[string]string, cookies []*http.Cookie) (s string, code int, t int64, err, neterr error) {
+	return getStringBase(uri, header, cookies)
 }
-func postStringHeader(uri string, header map[string]string, val url.Values) (s string, code int, t int64, err, neterr error) {
+func postStringHeader(uri string, header map[string]string, cookies []*http.Cookie, val url.Values) (s string, code int, t int64, err, neterr error) {
 	start := time.Now().UnixNano()
 	defer func() {
 		t = (time.Now().UnixNano() - start) / (1000 * 1000)
 	}()
 
-	resp, err, neterr := httpbase.PostForm(uri, header, nil, val)
+	resp, err, neterr := httpbase.PostForm(uri, header, nil, cookies, val)
 	if err != nil {
 		return
 	}
@@ -1852,13 +1853,13 @@ func postStringHeader(uri string, header map[string]string, val url.Values) (s s
 	return
 }
 
-func getBytes(uri string) (code int, buff []byte, t int64, err, neterr error) {
+func getBytes(uri string, cookies []*http.Cookie) (code int, buff []byte, t int64, err, neterr error) {
 	start := time.Now().UnixNano()
 	defer func() {
 		t = (time.Now().UnixNano() - start) / (1000 * 1000)
 	}()
 
-	resp, err, neterr := httpbase.Get(uri, nil, nil)
+	resp, err, neterr := httpbase.Get(uri, nil, nil, cookies)
 	if err != nil {
 		return
 	}
@@ -1892,7 +1893,7 @@ func (hls *NicoHls) saveMedia(seqno int, uri string) (is403, is404, is500 bool, 
 		}()
 	}
 
-	code, buff, millisec, err, neterr := getBytes(uri)
+	code, buff, millisec, err, neterr := getBytes(uri, nil)
 	if hls.nicoDebug {
 		fmt.Fprintf(os.Stderr, "%s:getBytes@saveMedia: seqno=%d, code=%v, err=%v, neterr=%v, %v(ms), len=%v\n",
 			debug_Now(), seqno, code, err, neterr, millisec, len(buff))
@@ -1954,9 +1955,152 @@ func (hls *NicoHls) saveMedia(seqno int, uri string) (is403, is404, is500 bool, 
 	return
 }
 
+func convertBwDlive2Dmc (dlive_bw int) (dmc_bw int) {
+	dmc_bw = 0
+	if dlive_bw >= 8280800 {	//8Mbps
+		dmc_bw = 14400000
+	} else if dlive_bw >= 6480800 {	//6Mbps
+		dmc_bw = 10800000
+	} else if dlive_bw >= 4280800 {	//4Mbps
+		dmc_bw = 7200000
+	} else if dlive_bw >= 3280800 {	//super_high
+		dmc_bw = 5400000
+	} else if dlive_bw >= 2180800 {	//high
+		dmc_bw = 3600000
+	} else if dlive_bw >= 1080800 {	//normal
+		dmc_bw = 1800000
+	} else if dlive_bw >= 412800 {
+		dmc_bw = 691200
+	} else if dlive_bw >= 201600 {
+		dmc_bw = 345600
+	}
+	return
+}
+
+func writeM3u8File(filename, data string) error {
+	d := []byte(data)
+	err := ioutil.WriteFile(filename, d, 0644)
+	if err != nil {
+		return err
+	}
+	return err
+}
+
+func (hls *NicoHls) getPlaylistDlive(argUri *url.URL, cookies []*http.Cookie) (is403, isEnd, isStop, is500 bool, neterr, err error) {
+	u := argUri.String()
+	var name string
+	m3u8, code, millisec, err, neterr := getString(u, cookies)
+	if hls.nicoDebug {
+		fmt.Fprintf(os.Stderr, "%s:getPlaylistDlive: code=%v, err=%v, neterr=%v, %v(ms) >>>%s<<<\n",
+			debug_Now(), code, err, neterr, millisec, m3u8)
+	}
+	if err != nil || neterr != nil {
+		return
+	}
+
+	switch code {
+	case 200:
+	case 403:
+		is403 = true
+	default:
+		fmt.Printf("#### playlist code: %d: %s\n", code, argUri.String())
+		err = fmt.Errorf("playlist code: %d: %s", code, argUri.String())
+		return
+	}
+
+	re := regexp.MustCompile(`#EXT-X-MEDIA-SEQUENCE:(\d+)`)
+	ma := re.FindStringSubmatch(m3u8)
+	if len(ma) > 0 {
+		// Playlist m3u8
+		fmt.Println("Get Playlist")
+		//fmt.Fprintf(os.Stderr, "%s:getPlaylistDlive: code=%v, err=%v, neterr=%v, %v(ms) >>>%s<<<\n",
+		//	debug_Now(), code, err, neterr, millisec, m3u8)
+		name = files.ChangeExtention(hls.dbName, "playlist.m3u8")
+		name, err = files.GetFileNameNext(name)
+		if err != nil {
+			fmt.Println(err)
+		} else {
+			writeM3u8File(name, m3u8)
+		}
+	} else {
+		// Master m3u8
+ 		fmt.Println("Get Master")
+		//fmt.Fprintf(os.Stderr, "%s:getPlaylistDlive: code=%v, err=%v, neterr=%v, %v(ms) >>>%s<<<\n",
+		//	debug_Now(), code, err, neterr, millisec, m3u8)
+		re := regexp.MustCompile(`#EXT-X-STREAM-INF:(?:[^\n]*[^\n\w-])?BANDWIDTH=(\d+)[^\n]*\n(\S+)`)
+		ma := re.FindAllStringSubmatch(m3u8, -1)
+		if len(ma) > 0 {
+			var maxBw, idxBw int
+			var uri *url.URL
+			for i, a := range ma {
+				bw, err := strconv.Atoi(a[1])
+				if err != nil {
+					log.Fatal(err)
+				}
+				bw = convertBwDlive2Dmc(bw)	//新サーバーのBWを旧サーバーのBWに変換
+
+				set := func() {
+					maxBw = bw
+					idxBw = i
+					uri, err = urlJoin(argUri, a[2])
+					if err != nil {
+						log.Println(err)
+					}
+				}
+
+				if maxBw == 0 {
+					set()
+
+				} else if hls.limitBw > 0 {
+					// with limit
+						// もし現在値が制限を超えていたら、現在値より小さければセット。
+					if hls.limitBw < maxBw && bw < maxBw {
+						set()
+
+						// 現在値が制限以下で、制限を超えないかつ現在値より大きければセット。
+					} else if maxBw <= hls.limitBw && bw <= hls.limitBw && maxBw < bw {
+						set()
+					}
+
+				} else {
+					// without limit
+					if maxBw < bw {
+						set()
+					}
+				}
+			}
+			if uri == nil {
+				err = fmt.Errorf("playlist uri not defined")
+				return
+			}
+
+			if !hls.isTimeshift {
+				if idxBw < 1 {
+					idxBw = 1
+				}
+				fmt.Printf("BANDWIDTH: %d (index=%d)\n", maxBw, idxBw)
+			} else {
+				fmt.Printf("BANDWIDTH: %d\n", maxBw)
+			}
+			hls.playlist.bandwidth = maxBw
+			if hls.isTimeshift && hls.fastTimeshift {
+
+			} else {
+				hls.playlist.uriMaster = argUri
+				hls.playlist.uri = uri
+			}
+			return hls.getPlaylistDlive(uri, nil)
+
+		} else {
+			log.Println("playlist error")
+		}
+	}
+	return
+}
+
 func (hls *NicoHls) getPlaylist(argUri *url.URL) (is403, isEnd, isStop, is500 bool, neterr, err error) {
 	u := argUri.String()
-	m3u8, code, millisec, err, neterr := getString(u)
+	m3u8, code, millisec, err, neterr := getString(u, nil)
 	if hls.nicoDebug {
 		fmt.Fprintf(os.Stderr, "%s:getPlaylist: code=%v, err=%v, neterr=%v, %v(ms) >>>%s<<<\n",
 			debug_Now(), code, err, neterr, millisec, m3u8)
@@ -2336,7 +2480,7 @@ func (hls *NicoHls) getPlaylist(argUri *url.URL) (is403, isEnd, isStop, is500 bo
 				fmt.Printf("BANDWIDTH: %d (index=%d)\n", maxBw, idxBw)
 				//DBにsegnoとdateを書き込み処理
 				//fmt.Printf("syncData Index=%d: %v\n", idxBw, hls.syncData[idxBw-1])
-				hls.dbSyncSet(hls.syncData[idxBw-1])
+				//hls.dbSyncSet(hls.syncData[idxBw-1])
 			} else {
 				fmt.Printf("BANDWIDTH: %d\n", maxBw)
 			}
@@ -2358,7 +2502,7 @@ func (hls *NicoHls) getPlaylist(argUri *url.URL) (is403, isEnd, isStop, is500 bo
 
 func (hls *NicoHls) streamSync(uri string) {
 	hls.startPGoroutine(func(sig <-chan struct{}) int {
-		data, code, millisec, err, neterr := getString(uri)
+		data, code, millisec, err, neterr := getString(uri, nil)
 		if hls.nicoDebug {
 			fmt.Fprintf(os.Stderr, "%s:streamSync: code=%v, err=%v, neterr=%v, %v(ms) \n>>>%s<<<\n",
 				debug_Now(), code, err, neterr, millisec, data)
@@ -2383,6 +2527,54 @@ func (hls *NicoHls) streamSync(uri string) {
 			}
 		}
 
+		return OK
+	})
+}
+
+func (hls *NicoHls) startPlaylistDlive(uri string, cookies []*http.Cookie) {
+	hls.startPGoroutine(func(sig <-chan struct{}) int {
+		hls.playlist = playlist{}
+		//hls.playlist.uri = uri
+		u, e := url.Parse(uri)
+		if e != nil {
+			return PLAYLIST_ERROR
+		}
+
+		hls.playlist.uri = u
+		if hls.isTimeshift {
+			hls.playlist.uriTimeshiftMaster = u
+		}
+
+		for i := 0; i < 2 ; i++ {
+			is403, isEnd, isStop, is500, neterr, err := hls.getPlaylistDlive(u, cookies)
+			if neterr != nil {
+				if !hls.interrupted() {
+					log.Println("playlist:", e)
+				}
+				return NETWORK_ERROR
+			}
+			if is500 {
+				if !hls.interrupted() {
+					log.Println("playlist(500):", e)
+				}
+				return NETWORK_ERROR
+			}
+			if err != nil {
+				if !hls.interrupted() {
+					log.Println("playlist:", e)
+				}
+				return PLAYLIST_ERROR
+			}
+			if is403 {
+				return PLAYLIST_403
+			}
+			if isEnd {
+				return PLAYLIST_END
+			}
+			if isStop {
+				return TIMESHIFT_STOP
+			}
+		}
 		return OK
 	})
 }
@@ -2656,8 +2848,15 @@ func (hls *NicoHls) startMain() {
 								//	fmt.Fprintf(os.Stderr, "cookies: %v\n",_cookies)
 								//}
 								//cookieを追加
-								httpbase.SetCookies(_cookies)
-								//masterとplaylist表示
+								cookies, err := httpbase.GetCookies(_cookies)
+								if err == nil {
+									fmt.Fprintf(os.Stderr, "new_cookies[%d]: %v\n",len(cookies), cookies)
+									//masterとplaylist表示
+									if uri, ok := objs.FindString(res, "data", "uri"); ok {
+										//playlistStarted = true
+										hls.startPlaylistDlive(uri, cookies)
+									}
+								}
 							}
 							hls.nicoCommentOnly = true
 						}
@@ -2941,7 +3140,7 @@ func postTsRsvBase(num int, vid, session string) (err error) {
 		"Referer": "https://live.nicovideo.jp/watch/lv" + vid,
 		"Origin": "https://live.nicovideo.jp",
 	}
-	dat0, _, _, err, neterr := getStringHeader(uri, header)
+	dat0, _, _, err, neterr := getStringHeader(uri, header, nil)
 	if err != nil || neterr != nil {
 		if err == nil {
 			err = neterr
@@ -2993,7 +3192,7 @@ func postTsRsvBase(num int, vid, session string) (err error) {
 		}
 	}
 
-	dat1, _, _, err, neterr := postStringHeader("https://live2.nicovideo.jp/api/watchingreservation", header, vals)
+	dat1, _, _, err, neterr := postStringHeader("https://live2.nicovideo.jp/api/watchingreservation", header, nil, vals)
 	if err != nil || neterr != nil {
 		if err == nil {
 			err = neterr
@@ -3035,7 +3234,7 @@ func postRsvUseTs(isRsv bool, opt options.Option) (err error) {
 	}
 	vals := url.Values{"vid": []string{vid},}
 
-	dat, _, _, err, neterr := postStringHeader(uri, header, vals)
+	dat, _, _, err, neterr := postStringHeader(uri, header, nil, vals)
 	if err != nil || neterr != nil {
 		if err == nil {
 			err = neterr
@@ -3066,7 +3265,7 @@ func getProps(opt options.Option) (props interface{}, notLogin, rsvTs, useTs boo
 
 	//ログインチェック
 	uri := "https://www.nicovideo.jp"
-	dat, _, _, err, neterr := getStringHeader(uri, header)
+	dat, _, _, err, neterr := getStringHeader(uri, header, nil)
 	if err != nil || neterr != nil {
 		if err == nil {
 			err = neterr
@@ -3104,7 +3303,7 @@ func getProps(opt options.Option) (props interface{}, notLogin, rsvTs, useTs boo
 
 	// 放送ページ取得
 	uri = fmt.Sprintf("https://live.nicovideo.jp/watch/%s", opt.NicoLiveId)
-	dat, _, _, err, neterr = getStringHeader(uri, header)
+	dat, _, _, err, neterr = getStringHeader(uri, header, nil)
 	if err != nil || neterr != nil {
 		if err == nil {
 			err = neterr
