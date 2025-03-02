@@ -400,6 +400,10 @@ func dbGetCommentRevision(db *sql.DB) (commentRevision int) {
 	if nameCount > 0 {
 		commentRevision = 2
 	}
+	db.QueryRow(`SELECT COUNT(k) FROM 'kvs' WHERE k = 'streamType'`).Scan(&nameCount)
+	if nameCount > 0 {
+		commentRevision = 3
+	}
 	return
 }
 
@@ -423,6 +427,7 @@ func WriteComment(db *sql.DB, fileName string, skipHb, adjustVpos bool, seqnoSta
 	//kvsテーブルから読み込み
 	var openTime, vposBaseTime int64
 	var providerType string
+	var streamType string
 	var offset int64
 	kvs := DbKVGet(db)
 
@@ -443,11 +448,22 @@ func WriteComment(db *sql.DB, fileName string, skipHb, adjustVpos bool, seqnoSta
 	openTime = int64(t)
 	t = kvs["vposBaseTime"].(float64)
 	vposBaseTime = int64(t)
+	if commentRevision > 2 {
+		streamType = kvs["streamType"].(string)
+	}
 	sts = kvs["status"].(string)
 	if sts == "ENDED" {
-		offset = seqnoStart * 500 //timeshift
+		if streamType == "dlive" {
+			offset = seqnoStart * 600 //timeshift
+		} else {
+			offset = seqnoStart * 500 //timeshift
+		}
 	} else {
-		offset = (sync_date/10) - (openTime*100) + (seqnoStart-sync_seqno)*150 //on_air
+		if streamType == "dlive" {
+			offset = (sync_date/10) - (openTime*100) + (seqnoStart-sync_seqno)*300 //on_air
+		} else {
+			offset = (sync_date/10) - (openTime*100) + (seqnoStart-sync_seqno)*150 //on_air
+		}
 	}
 	providerType = kvs["providerType"].(string)
 	fmt.Println("status: ", sts)

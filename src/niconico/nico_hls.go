@@ -345,9 +345,13 @@ func NewHls(opt options.Option, prop map[string]interface{}) (hls *NicoHls, err 
 			}
 		}
 		if !hls.nicoNoStreamlink || !hls.nicoNoYtdlp || hls.nicoCommentOnly || hls.isDms {
-			sno := hls.tsStart / 5
+			var seg_len int64 = 6
+			if !hls.isDms {
+				seg_len = 5
+			}
+			sno := hls.tsStart / seg_len
 			hls.dbKVSet("seqStart", sno)
-			eno := hls.tsStop / 5
+			eno := hls.tsStop / seg_len
 			hls.dbKVSet("seqEnd", eno)
 		}
 		//fmt.Println("Write dbKVSet")
@@ -1067,7 +1071,8 @@ func (hls *NicoHls) execStreamlink(uri, name string, tsstart, tsstop int64, limi
 		args = append(args, "--niconico-user-session", session)
 	}
 	if (tsstart > 0) {
-		args = append(args, "--niconico-timeshift-offset", options.SecondsToHHMMSS(tsstart))
+		//args = append(args, "--niconico-timeshift-offset", options.SecondsToHHMMSS(tsstart))
+		args = append(args, "--hls-start-offset", options.SecondsToHHMMSS(tsstart))
 	}
 	if (tsstop > 0) {
 		args = append(args, "--hls-duration", options.SecondsToHHMMSS(tsstop - tsstart))
