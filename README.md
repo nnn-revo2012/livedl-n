@@ -1,6 +1,16 @@
 # livedl  
-
 Nicolive recording tool that supports new distribution (HTML5).  
+
+## 動画のダウンロードについて  
+**ニコニコ生放送（ニコ生）は2025/02/05から新動画サーバー(dlive)の配信に移行しています。  
+dliveで配信する動画はすべてAES128暗号化されており、これを解除する方法の公開やツール作成は日本の著作権法に違反する可能性があります。  
+現在の作者(nnn-revo2012)は日本在住なのでを対応させることができません。  
+※アメリカ、EU、中国、韓国を含むほとんどの国でもDRM暗号化の解除は違法なのでAES暗号化動画の解除も違法になる可能性があります。  
+今後の動画についてはご自分で情報を探すなりして対応してください。**  
+
+## 使い方
+**以下のwikiを参照してください**  
+https://github.com/nnn-revo2012/livedl-n/wiki  
 
 ## This version is require golang 1.20.x or higher and module-aware mode.   
 See [Migrating to Go Modules](https://blog.golang.org/migrating-to-go-modules)  

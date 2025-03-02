@@ -1,4 +1,4 @@
-livedl (20250206.59b-windows-amd64)
+livedl (20250303.60-windows-amd64)
 Usage:
 livedl [COMMAND] options... [--] FILE
 
@@ -108,6 +108,15 @@ FILE:
     https://twitcasting.tv/XXXXX
 
 ﻿更新履歴
+20250303.60
+- ニコ生新動画サーバー対応
+  - セグメント長が5秒->6秒に変わったのでvpos計算方法を修正
+    (DMCの場合はこれまで通り)
+  - -nico-ts-startなどの時間は6秒単位になります
+    (DMCの場合はこれまで通り5秒単位)
+  - streamlink起動時に-nico-ts-start の値を--hls-start-offset で渡すよう修正
+    例えば最初の6秒分skipする場合は -nico-ts-start 00:00:06 と追加してください
+
 20250206.59b
 - ニコ生新動画サーバー対応
   - 新動画サーバーのリアルタイム放送の録画開始時にエラーで終了するのを修正
