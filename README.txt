@@ -1,4 +1,4 @@
-livedl (20250303.60-windows-amd64)
+livedl (20250307.61-windows-amd64)
 Usage:
 livedl [COMMAND] options... [--] FILE
 
@@ -108,6 +108,13 @@ FILE:
     https://twitcasting.tv/XXXXX
 
 ﻿更新履歴
+20250307.61
+- 機能修正
+  - 20230303.60でマルウェア判定されたのでソース修正
+  - Streamlinkのオプションを新旧動画サーバーで変更
+  - 外部実行ファイル実行時に渡すファイル名を.mp4から.tsに変更
+    (-conv-ext=mp4の場合も.tsとなります)
+
 20250303.60
 - ニコ生新動画サーバー対応
   - セグメント長が5秒->6秒に変わったのでvpos計算方法を修正
