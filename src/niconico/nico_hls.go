@@ -112,6 +112,7 @@ type NicoHls struct {
 	limitBwOrig int
 	syncData    []string
 	serverTime  int64
+	convExt     string
 
 	nicoDebug     bool
 	msgErrorCount int
@@ -302,6 +303,7 @@ func NewHls(opt options.Option, prop map[string]interface{}) (hls *NicoHls, err 
 		limitBwOrig: limitBw,
 		nicoDebug:   opt.NicoDebug,
 		serverTime:  servertime,
+		convExt:     opt.ConvExt,
 
 		gmPlst: gorman.WithChecker(func(c int) { hls.checkReturnCode(c) }),
 		gmCmnt: gorman.WithChecker(func(c int) { hls.checkReturnCode(c) }),
@@ -1071,8 +1073,11 @@ func (hls *NicoHls) execStreamlink(uri, name string, tsstart, tsstop int64, limi
 		args = append(args, "--niconico-user-session", session)
 	}
 	if (tsstart > 0) {
-		//args = append(args, "--niconico-timeshift-offset", options.SecondsToHHMMSS(tsstart))
-		args = append(args, "--hls-start-offset", options.SecondsToHHMMSS(tsstart))
+		if hls.isDms {
+			args = append(args, "--hls-start-offset", options.SecondsToHHMMSS(tsstart))
+		} else {
+			args = append(args, "--niconico-timeshift-offset", options.SecondsToHHMMSS(tsstart))
+		}
 	}
 	if (tsstop > 0) {
 		args = append(args, "--hls-duration", options.SecondsToHHMMSS(tsstop - tsstart))
@@ -1269,7 +1274,7 @@ func (hls *NicoHls) startExec(nicoNoStreamlink, nicoNoYoutube_dl bool) (err erro
 		var name string
 		var err error
 		uri := fmt.Sprintf("https://live.nicovideo.jp/watch/%s", hls.nicoLiveId)
-		name = files.ChangeExtention(hls.dbName, "mp4")
+		name = files.ChangeExtention(hls.dbName, "ts")
 		name, err = files.GetFileNameNext(name)
 		if err != nil {
 			fmt.Println(err)
