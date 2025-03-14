@@ -72,7 +72,8 @@ type NicoHls struct {
 	nicoLiveId       string
 	nicoNoStreamlink bool
 	nicoNoYtdlp      bool
-	isDms            bool
+	isDlive          bool
+	nicoExecBw       string
 
 	commentStarted    bool
 	mtxCommentStarted sync.Mutex
@@ -152,9 +153,9 @@ func NewHls(opt options.Option, prop map[string]interface{}) (hls *NicoHls, err 
 		timeshift = true
 	}
 
-	var isdms bool
+	var isdlive bool
 	if streamType, ok := prop["streamType"].(string); ok && streamType == "dlive" {
-		isdms = true
+		isdlive = true
 		fmt.Println("新動画サーバーの動画には対応していません コメントのみになります")
 	}
 
@@ -292,7 +293,8 @@ func NewHls(opt options.Option, prop map[string]interface{}) (hls *NicoHls, err 
 		nicoNoStreamlink: opt.NicoNoStreamlink,
 		nicoNoYtdlp: opt.NicoNoYtdlp,
 		nicoCommentOnly: opt.NicoCommentOnly,
-		isDms: isdms,
+		isDlive: isdlive,
+		nicoExecBw: opt.NicoExecBw,
 
 		isTimeshift:        timeshift,
 		fastTimeshift:      opt.NicoFastTs || opt.NicoUltraFastTs,
@@ -346,9 +348,9 @@ func NewHls(opt options.Option, prop map[string]interface{}) (hls *NicoHls, err 
 				hls.dbKVSet(k, v)
 			}
 		}
-		if !hls.nicoNoStreamlink || !hls.nicoNoYtdlp || hls.nicoCommentOnly || hls.isDms {
+		if !hls.nicoNoStreamlink || !hls.nicoNoYtdlp || hls.nicoCommentOnly || hls.isDlive {
 			var seg_len int64 = 6
-			if !hls.isDms {
+			if !hls.isDlive {
 				seg_len = 5
 			}
 			sno := hls.tsStart / seg_len
@@ -1065,27 +1067,34 @@ var split = func(data []byte, atEOF bool) (advance int, token []byte, err error)
 }
 
 //func execStreamlink(gm *gorman.GoroutineManager, uri, name string) (notSupport bool, err error) {
-func (hls *NicoHls) execStreamlink(uri, name string, tsstart, tsstop int64, limitBw int, session, proxy string) (notSupport bool, err error) {
+func (hls *NicoHls) execStreamlink(uri, name string, tsstart, tsstop int64, execbw, session, proxy string) (notSupport bool, err error) {
 
 	var args []string
-	args = append(args, uri, "best")
+	if len(execbw) > 0 {
+		args = append(args, uri, "--default-stream", execbw)
+	} else {
+		args = append(args, uri, "best")
+	}
 	if len(session) > 0 {
 		args = append(args, "--niconico-user-session", session)
 	}
-	if (tsstart > 0) {
-		if hls.isDms {
+	if tsstart > 0 {
+		if hls.isDlive {
 			args = append(args, "--hls-start-offset", options.SecondsToHHMMSS(tsstart))
 		} else {
 			args = append(args, "--niconico-timeshift-offset", options.SecondsToHHMMSS(tsstart))
 		}
 	}
-	if (tsstop > 0) {
+	if tsstop > 0 {
 		args = append(args, "--hls-duration", options.SecondsToHHMMSS(tsstop - tsstart))
+	}
+	if hls.isDlive {
+		args = append(args, "--ffmpeg-copyts")
 	}
 	if len(proxy) > 0 {
 		args = append(args, "--http-proxy", proxy)
 	}
-	args = append(args, "--retry-max", "10", "-o", name)
+	args = append(args, "--retry-max", "5", "-o", name)
 	//cmd, stdout, stderr, err := streamlink.Open(uri, "--http-cookie=user_session="+session, "best", "--retry-max", "10", "-o", name)
 	cmd, stdout, stderr, err := streamlink.Open(args...)
 	if err != nil {
@@ -1168,7 +1177,7 @@ func (hls *NicoHls) execStreamlink(uri, name string, tsstart, tsstop int64, limi
 }
 
 //func execYoutube_dl(gm *gorman.GoroutineManager, uri, name string) (err error) {
-func (hls *NicoHls) execYoutube_dl(uri, name string, tsstart, tsstop int64, limitbw int, session, proxy string) (err error) {
+func (hls *NicoHls) execYoutube_dl(uri, name string, tsstart, tsstop int64, execbw, session, proxy string) (err error) {
 	defer func() {
 		part := name + ".part"
 		if _, test := os.Stat(part); test == nil {
@@ -1186,6 +1195,9 @@ func (hls *NicoHls) execYoutube_dl(uri, name string, tsstart, tsstop int64, limi
 	//	ttt := fmt.Sprintf("\"*%s-%s\"", options.SecondsToHHMMSS(tsstart), options.SecondsToHHMMSS(tsstop))
 	//	args = append(args, "--download-sections", ttt)
 	//}
+	if len(execbw) > 0 {
+		args = append(args, "-f", execbw)
+	}
 	if len(proxy) > 0 {
 		args = append(args, "--proxy", proxy)
 	}
@@ -1282,11 +1294,11 @@ func (hls *NicoHls) startExec(nicoNoStreamlink, nicoNoYoutube_dl bool) (err erro
 		}
 
 		if !nicoNoStreamlink {
-			retry, err = hls.execStreamlink(uri, name, hls.tsStart, hls.tsStop, hls.limitBw, hls.nicoSession, hls.proxy)
+			retry, err = hls.execStreamlink(uri, name, hls.tsStart, hls.tsStop, hls.nicoExecBw, hls.nicoSession, hls.proxy)
 		}
 		if !hls.interrupted() {
 			if err != nil || retry || (nicoNoStreamlink && (!nicoNoYoutube_dl)) {
-				hls.execYoutube_dl(uri, name, hls.tsStart, hls.tsStop, hls.limitBw, hls.nicoSession, hls.proxy)
+				hls.execYoutube_dl(uri, name, hls.tsStart, hls.tsStop, hls.nicoExecBw, hls.nicoSession, hls.proxy)
 			}
 		}
 		if hls.interrupted() {
@@ -2614,14 +2626,14 @@ func (hls *NicoHls) startMain() {
 
 			case "stream":
 				if !hls.isTimeshift {
-					if !hls.isDms {
+					if !hls.isDlive {
 						if sync_uri, ok := objs.FindString(res, "data", "syncUri"); ok {
 							if (!playlistStarted) && sync_uri != "" {
 								hls.streamSync(sync_uri)
 							}
 						}
 					} else {
-						//DMSサーバーの場合のstreanSync処理
+						//Dliveサーバーの場合のstreanSync処理
 						if !playlistStarted {
 							//DBにsegnoとdateを書き込み処理
 							str := fmt.Sprintf("\"encoding_id\":\"1\",\"beginning_timestamp\":%d,\"sequence\":0", hls.serverTime)
@@ -2632,7 +2644,7 @@ func (hls *NicoHls) startMain() {
 				}
 				if !hls.nicoCommentOnly {
 					if hls.nicoNoStreamlink && hls.nicoNoYtdlp {
-						if !hls.isDms {	//DMCサーバー
+						if !hls.isDlive {	//Dliveサーバー
 							if uri, ok := objs.FindString(res, "data", "uri"); ok {
 								playlistStarted = true
 								hls.startPlaylist(uri)

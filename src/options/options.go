@@ -72,6 +72,7 @@ type Option struct {
 	NicoNoStreamlink       bool
 	NicoNoYtdlp            bool
 	NicoCommentOnly        bool
+	NicoExecBw             string
 }
 
 func getCmd() (cmd string) {
@@ -130,6 +131,9 @@ COMMAND:
   -nico-hls-port <portnum>       [実験的] ローカルなHLSサーバのポート番号
   -nico-limit-bw <bandwidth>     (+) HLSのBANDWIDTHの上限値を指定する。0=制限なし
                                  audio_high or audio_only = 音声のみ
+  -nico-exec-bw "FORMAT"         (+) Streamlink/yt-dlpの場合のBANDWIDTHを指定する
+                                 フォーマットはStreamlink/yt-dlpで指定するものと同じ
+                                 ※-nico-limit-bwとは連動していないので注意
   -nico-format "FORMAT"          (+) 保存時のファイル名を指定する
   -nico-fast-ts                  倍速タイムシフト録画を行う(新配信タイムシフト)
   -nico-fast-ts=on               (+) 上記を有効に設定
@@ -525,7 +529,8 @@ func ParseArgs() (opt Option) {
 		IFNULL((SELECT v FROM conf WHERE k == "HttpTimeout"), 30),
 		IFNULL((SELECT v FROM conf WHERE k == "NicoNoStreamlink"), 1),
 		IFNULL((SELECT v FROM conf WHERE k == "NicoNoYtdlp"), 1),
-		IFNULL((SELECT v FROM conf WHERE k == "NicoCommentOnly"), 0);
+		IFNULL((SELECT v FROM conf WHERE k == "NicoCommentOnly"), 0),
+		IFNULL((SELECT v FROM conf WHERE k == "NicoExecBw"), "");
 	`).Scan(
 		&opt.NicoFormat,
 		&opt.NicoLimitBw,
@@ -551,6 +556,7 @@ func ParseArgs() (opt Option) {
 		&opt.NicoNoStreamlink,
 		&opt.NicoNoYtdlp,
 		&opt.NicoCommentOnly,
+		&opt.NicoExecBw,
 	)
 	if err != nil {
 		log.Println(err)
@@ -867,6 +873,18 @@ func ParseArgs() (opt Option) {
 			}
 			opt.NicoFormat = s
 			dbConfSet(db, "NicoFormat", opt.NicoFormat)
+			return nil
+		}},
+		Parser{regexp.MustCompile(`\A(?i)--?nico-?exec-?bw\z`), func() (err error) {
+			s, err := nextArg()
+			if err != nil {
+				return err
+			}
+			if s == "" {
+				return fmt.Errorf("--nico-exec-bw: null string not allowed\n", s)
+			}
+			opt.NicoExecBw = s
+			dbConfSet(db, "NicoExecBw", opt.NicoExecBw)
 			return nil
 		}},
 		Parser{regexp.MustCompile(`\A(?i)--?nico-?test-?(?:format|fmt)\z`), func() (err error) {
@@ -1318,6 +1336,7 @@ LB_ARG:
 		fmt.Printf("Conf(NicoLoginOnly): %#v\n", opt.NicoLoginOnly)
 		fmt.Printf("Conf(NicoFormat): %#v\n", opt.NicoFormat)
 		fmt.Printf("Conf(NicoLimitBw): %#v\n", opt.NicoLimitBw)
+		fmt.Printf("Conf(NicoExecBw): %#v\n", opt.NicoExecBw)
 		fmt.Printf("Conf(NicoFastTs): %#v\n", opt.NicoFastTs)
 		fmt.Printf("Conf(NicoAutoConvert): %#v\n", opt.NicoAutoConvert)
 		if opt.NicoAutoConvert {
@@ -1327,7 +1346,7 @@ LB_ARG:
 			fmt.Printf("Conf(ConvExt): %#v\n", opt.ConvExt)
 		}
 		fmt.Printf("Conf(NicoForceResv): %#v\n", opt.NicoForceResv)
-		fmt.Printf("Conf(NicoSkipHb): %#v\n", opt.NicoSkipHb)
+		//fmt.Printf("Conf(NicoSkipHb): %#v\n", opt.NicoSkipHb)
 		fmt.Printf("Conf(NicoAdjustVpos): %#v\n", opt.NicoAdjustVpos)
 		fmt.Printf("Conf(NicoNoStreamlink): %#v\n", opt.NicoNoStreamlink)
 		fmt.Printf("Conf(NicoNoYtdlp): %#v\n", opt.NicoNoYtdlp)
@@ -1346,7 +1365,7 @@ LB_ARG:
 		fmt.Printf("Conf(ExtractChunks): %#v\n", opt.ExtractChunks)
 		fmt.Printf("Conf(NicoConvForceConcat): %#v\n", opt.NicoConvForceConcat)
 		fmt.Printf("Conf(ConvExt): %#v\n", opt.ConvExt)
-		fmt.Printf("Conf(NicoSkipHb): %#v\n", opt.NicoSkipHb)
+		//fmt.Printf("Conf(NicoSkipHb): %#v\n", opt.NicoSkipHb)
 		fmt.Printf("Conf(NicoAdjustVpos): %#v\n", opt.NicoAdjustVpos)
 		fmt.Printf("Conf(YtEmoji): %#v\n", opt.YtEmoji)
 	case "DB2HLS":
