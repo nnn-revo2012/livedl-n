@@ -1,4 +1,4 @@
-livedl (20250307.61-windows-amd64)
+livedl (20250315.62-windows-amd64)
 Usage:
 livedl [COMMAND] options... [--] FILE
 
@@ -33,6 +33,9 @@ COMMAND:
   -nico-hls-port <portnum>       [実験的] ローカルなHLSサーバのポート番号
   -nico-limit-bw <bandwidth>     (+) HLSのBANDWIDTHの上限値を指定する。0=制限なし
                                  audio_high or audio_only = 音声のみ
+  -nico-exec-bw "FORMAT"         (+) Streamlink/yt-dlpの場合のBANDWIDTHを指定する
+                                 フォーマットはStreamlink/yt-dlpで指定するものと同じ
+                                 ※-nico-limit-bwとは連動していないので注意
   -nico-format "FORMAT"          (+) 保存時のファイル名を指定する
   -nico-fast-ts                  倍速タイムシフト録画を行う(新配信タイムシフト)
   -nico-fast-ts=on               (+) 上記を有効に設定
@@ -108,6 +111,15 @@ FILE:
     https://twitcasting.tv/XXXXX
 
 ﻿更新履歴
+20250315.62
+- 機能追加・修正
+  - 実行ファイル起動時に画質を指定するオプション追加
+    -nico-exec-bw "画質指定の設定"
+    ※具体的にどう設定するかは使うツール側のHELPやマニュアルを参照ください
+    ※-nico-limit-bwとは連動していません
+  - 実行ファイル起動時のオプションを調整(--ffmpeg-copyts追加など)
+  - DMSをDlive表記に修正
+
 20250307.61
 - 機能修正
   - 20230303.60でマルウェア判定されたのでソース修正
