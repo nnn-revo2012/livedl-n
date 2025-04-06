@@ -1,4 +1,4 @@
-livedl (20250315.62-windows-amd64)
+livedl (20250406.63-windows-amd64)
 Usage:
 livedl [COMMAND] options... [--] FILE
 
@@ -111,6 +111,12 @@ FILE:
     https://twitcasting.tv/XXXXX
 
 ﻿更新履歴
+20250406.63
+- 機能修正
+  - 実行ファイル起動時のオプションを調整
+    (--ffmpeg-copyts削除、--niconico-purge-credentials追加、リトライ処理追加など)
+  - -nico-exec-bwで "" が指定できるよう修正
+
 20250315.62
 - 機能追加・修正
   - 実行ファイル起動時に画質を指定するオプション追加
