@@ -1075,6 +1075,7 @@ func (hls *NicoHls) execStreamlink(uri, name string, tsstart, tsstop int64, exec
 	} else {
 		args = append(args, uri, "best")
 	}
+	args = append(args, "--niconico-purge-credentials")
 	if len(session) > 0 {
 		args = append(args, "--niconico-user-session", session)
 	}
@@ -1088,13 +1089,10 @@ func (hls *NicoHls) execStreamlink(uri, name string, tsstart, tsstop int64, exec
 	if tsstop > 0 {
 		args = append(args, "--hls-duration", options.SecondsToHHMMSS(tsstop - tsstart))
 	}
-	if hls.isDlive {
-		args = append(args, "--ffmpeg-copyts")
-	}
 	if len(proxy) > 0 {
 		args = append(args, "--http-proxy", proxy)
 	}
-	args = append(args, "--retry-max", "5", "-o", name)
+	args = append(args, "--retry-streams", "6", "--retry-max", "5", "--retry-open", "3", "-o", name)
 	//cmd, stdout, stderr, err := streamlink.Open(uri, "--http-cookie=user_session="+session, "best", "--retry-max", "10", "-o", name)
 	cmd, stdout, stderr, err := streamlink.Open(args...)
 	if err != nil {
@@ -1164,6 +1162,7 @@ func (hls *NicoHls) execStreamlink(uri, name string, tsstart, tsstop int64, exec
 				notSupport = true
 				//procs.Kill(cmd.Process.Pid)
 				//break
+			} else if strings.Contains(s, "Encountered a stream discontinuity.") {
 			} else {
 				fmt.Print(s)
 			}
@@ -2644,12 +2643,12 @@ func (hls *NicoHls) startMain() {
 				}
 				if !hls.nicoCommentOnly {
 					if hls.nicoNoStreamlink && hls.nicoNoYtdlp {
-						if !hls.isDlive {	//Dliveサーバー
+						if !hls.isDlive {
 							if uri, ok := objs.FindString(res, "data", "uri"); ok {
 								playlistStarted = true
 								hls.startPlaylist(uri)
 							}
-						} else {
+						} else {	//Dliveサーバー
 							hls.nicoCommentOnly = true
 						}
 					} else {

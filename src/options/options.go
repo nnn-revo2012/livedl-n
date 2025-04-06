@@ -880,9 +880,6 @@ func ParseArgs() (opt Option) {
 			if err != nil {
 				return err
 			}
-			if s == "" {
-				return fmt.Errorf("--nico-exec-bw: null string not allowed\n", s)
-			}
 			opt.NicoExecBw = s
 			dbConfSet(db, "NicoExecBw", opt.NicoExecBw)
 			return nil
