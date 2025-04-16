@@ -1957,21 +1957,21 @@ func (hls *NicoHls) saveMedia(seqno int, uri string) (is403, is404, is500 bool, 
 
 func convertBwDlive2Dmc (dlive_bw int) (dmc_bw int) {
 	dmc_bw = 0
-	if dlive_bw >= 8280800 {	//8Mbps
+	if dlive_bw >= 8000000 {	//8Mbps
 		dmc_bw = 14400000
-	} else if dlive_bw >= 6480800 {	//6Mbps
+	} else if dlive_bw >= 6000000 {	//6Mbps
 		dmc_bw = 10800000
-	} else if dlive_bw >= 4280800 {	//4Mbps
+	} else if dlive_bw >= 4000000 {	//4Mbps
 		dmc_bw = 7200000
-	} else if dlive_bw >= 3280800 {	//super_high
+	} else if dlive_bw >= 3000000 {	//super_high
 		dmc_bw = 5400000
-	} else if dlive_bw >= 2180800 {	//high
+	} else if dlive_bw >= 2000000 {	//high
 		dmc_bw = 3600000
-	} else if dlive_bw >= 1080800 {	//normal
+	} else if dlive_bw >= 1000000 {	//normal
 		dmc_bw = 1800000
-	} else if dlive_bw >= 412800 {
+	} else if dlive_bw >= 384000 {
 		dmc_bw = 691200
-	} else if dlive_bw >= 201600 {
+	} else if dlive_bw >= 192000 {
 		dmc_bw = 345600
 	}
 	return
@@ -1986,7 +1986,7 @@ func writeM3u8File(filename, data string) error {
 	return err
 }
 
-func (hls *NicoHls) getPlaylistDlive(argUri *url.URL, cookies []*http.Cookie) (is403, isEnd, isStop, is500 bool, neterr, err error) {
+func (hls *NicoHls) getPlaylistDlive(argUri *url.URL, argUriAudio *url.URL, cookies []*http.Cookie) (is403, isEnd, isStop, is500 bool, neterr, err error) {
 	u := argUri.String()
 	var name string
 	m3u8, code, millisec, err, neterr := getString(u, cookies)
@@ -2003,34 +2003,95 @@ func (hls *NicoHls) getPlaylistDlive(argUri *url.URL, cookies []*http.Cookie) (i
 	case 403:
 		is403 = true
 	default:
-		fmt.Printf("#### playlist code: %d: %s\n", code, argUri.String())
-		err = fmt.Errorf("playlist code: %d: %s", code, argUri.String())
+		fmt.Printf("#### playlist(video) code: %d: %s\n", code, argUri.String())
+		err = fmt.Errorf("playlist(video) code: %d: %s", code, argUri.String())
 		return
+	}
+
+	var m3u8_audio string
+	if argUriAudio != nil {
+		u_audio := argUriAudio.String()
+		m3u8_audio, code, millisec, err, neterr = getString(u_audio, cookies)
+		if hls.nicoDebug {
+			fmt.Fprintf(os.Stderr, "%s:getPlaylistDlive: code=%v, err=%v, neterr=%v, %v(ms) >>>%s<<<\n",
+				debug_Now(), code, err, neterr, millisec, m3u8)
+		}
+		if err != nil || neterr != nil {
+			return
+		}
+		switch code {
+		case 200:
+		case 403:
+			is403 = true
+		default:
+			fmt.Printf("#### playlist(audio) code: %d: %s\n", code, argUri.String())
+			err = fmt.Errorf("playlist(audio) code: %d: %s", code, argUri.String())
+			return
+		}
 	}
 
 	re := regexp.MustCompile(`#EXT-X-MEDIA-SEQUENCE:(\d+)`)
 	ma := re.FindStringSubmatch(m3u8)
 	if len(ma) > 0 {
-		// Playlist m3u8
-		fmt.Println("Get Playlist")
-		//fmt.Fprintf(os.Stderr, "%s:getPlaylistDlive: code=%v, err=%v, neterr=%v, %v(ms) >>>%s<<<\n",
-		//	debug_Now(), code, err, neterr, millisec, m3u8)
-		name = files.ChangeExtention(hls.dbName, "playlist.m3u8")
+		// Playlist m3u8(video)
+		fmt.Println("Get Playlist(video)")
+		name = files.ChangeExtention(hls.dbName, "playlist_v.m3u8")
 		name, err = files.GetFileNameNext(name)
 		if err != nil {
 			fmt.Println(err)
 		} else {
 			writeM3u8File(name, m3u8)
 		}
+		// Playlist m3u8(audio)
+		fmt.Println("Get Playlist(audio)")
+		name = files.ChangeExtention(hls.dbName, "playlist_a.m3u8")
+		name, err = files.GetFileNameNext(name)
+		if err != nil {
+			fmt.Println(err)
+		} else {
+			writeM3u8File(name, m3u8_audio)
+		}
 	} else {
 		// Master m3u8
  		fmt.Println("Get Master")
 		//fmt.Fprintf(os.Stderr, "%s:getPlaylistDlive: code=%v, err=%v, neterr=%v, %v(ms) >>>%s<<<\n",
 		//	debug_Now(), code, err, neterr, millisec, m3u8)
-		re := regexp.MustCompile(`#EXT-X-STREAM-INF:(?:[^\n]*[^\n\w-])?BANDWIDTH=(\d+)[^\n]*\n(\S+)`)
+		// Playlist m3u8(Master)
+		fmt.Println("Get Playlist(Master)")
+		name = files.ChangeExtention(hls.dbName, "master.m3u8")
+		name, err = files.GetFileNameNext(name)
+		if err != nil {
+			fmt.Println(err)
+		} else {
+			writeM3u8File(name, m3u8)
+		}
+		//AudioList一覧を取得
+		mapAudio := make(map[string]*url.URL)	//Audio名とURI
+		re := regexp.MustCompile(`#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="([^"]+)"(?:.+)URI="([^"]+)"`)
 		ma := re.FindAllStringSubmatch(m3u8, -1)
 		if len(ma) > 0 {
+			var groupId, uri string
+			for _, a := range ma {
+				if a[1] != "" {
+					groupId = a[1]
+				}
+				if a[2] != "" {
+					uri = a[2]
+				}
+				//fmt.Println("GROUP-ID:", groupID)
+				//fmt.Println("URI:", uri)
+				mapAudio[groupId], err = urlJoin(argUri, uri)
+				if err != nil {
+					log.Println(err)
+				}
+			}
+		}
+		//VideoList一覧を取得
+		re = regexp.MustCompile(`#EXT-X-STREAM-INF:(?:[^\n]*[^\n\w-])?AVERAGE-BANDWIDTH=(\d+)(?:.*)AUDIO="([^"]+)"[^\n]*\n(\S+)`)
+		ma = re.FindAllStringSubmatch(m3u8, -1)
+		if len(ma) > 0 {
 			var maxBw, idxBw int
+			var audio string
 			var uri *url.URL
 			for i, a := range ma {
 				bw, err := strconv.Atoi(a[1])
@@ -2042,7 +2103,8 @@ func (hls *NicoHls) getPlaylistDlive(argUri *url.URL, cookies []*http.Cookie) (i
 				set := func() {
 					maxBw = bw
 					idxBw = i
-					uri, err = urlJoin(argUri, a[2])
+					audio = a[2]
+					uri, err = urlJoin(argUri, a[3])
 					if err != nil {
 						log.Println(err)
 					}
@@ -2079,17 +2141,16 @@ func (hls *NicoHls) getPlaylistDlive(argUri *url.URL, cookies []*http.Cookie) (i
 					idxBw = 1
 				}
 				fmt.Printf("BANDWIDTH: %d (index=%d)\n", maxBw, idxBw)
+				fmt.Printf("AUDIO: %s\n", audio)
 			} else {
 				fmt.Printf("BANDWIDTH: %d\n", maxBw)
+				fmt.Printf("AUDIO: %s\n", audio)
 			}
 			hls.playlist.bandwidth = maxBw
-			if hls.isTimeshift && hls.fastTimeshift {
-
-			} else {
-				hls.playlist.uriMaster = argUri
-				hls.playlist.uri = uri
-			}
-			return hls.getPlaylistDlive(uri, nil)
+			hls.playlist.uriMaster = argUri
+			hls.playlist.uriAudio = mapAudio[audio]
+			hls.playlist.uri = uri
+			return hls.getPlaylistDlive(hls.playlist.uri, hls.playlist.uriAudio, nil)
 
 		} else {
 			log.Println("playlist error")
@@ -2545,8 +2606,8 @@ func (hls *NicoHls) startPlaylistDlive(uri string, cookies []*http.Cookie) {
 			hls.playlist.uriTimeshiftMaster = u
 		}
 
-		for i := 0; i < 2 ; i++ {
-			is403, isEnd, isStop, is500, neterr, err := hls.getPlaylistDlive(u, cookies)
+		for i := 0; i < 1 ; i++ {
+			is403, isEnd, isStop, is500, neterr, err := hls.getPlaylistDlive(u, nil, cookies)
 			if neterr != nil {
 				if !hls.interrupted() {
 					log.Println("playlist:", e)
