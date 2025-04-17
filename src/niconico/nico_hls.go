@@ -3219,7 +3219,7 @@ func NicoRecHls(opt options.Option) (done, playlistEnd, notLogin, reserved bool,
 		"isLoggedIn":   []string{"user", "isLoggedIn"},  // bool
 		"//myNickname": []string{"user", "nickname"},    // string
 		//stream
-		"streamType":   []string{"stream", "type"},      // "dmc" or "dlive"
+		//"streamType":   []string{"stream", "type"},      // "dmc" or "dlive"
 	}
 
 	kv := map[string]interface{}{}
@@ -3229,6 +3229,7 @@ func NicoRecHls(opt options.Option) (done, playlistEnd, notLogin, reserved bool,
 			kv[k] = v
 		}
 	}
+	kv["streamType"] = "dlive"	//2025/04/17
 
 	for _, k := range []string{
 		"//webSocketUrl",
