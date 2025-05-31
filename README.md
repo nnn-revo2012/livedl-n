@@ -1,5 +1,5 @@
 # livedl  
-Nicolive recording tool that supports new distribution (HTML5).  
+livedl-nは開発終了いたしました
 
 ## 動画のダウンロードについて  
 **ニコニコ生放送（ニコ生）は2025/02/05から新動画サーバー(dlive)の配信に移行しています。  
