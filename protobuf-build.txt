@@ -1,0 +1,30 @@
+protobufファイルのコンパイルの覚書(Golang編)
+
+参考にしたサイト
+https://qiita.com/nozmiz/items/fdbd052c19dad28ab067
+https://tech.librastudio.co.jp/entry/index.php/2018/11/15/post-1963/
+
+うまくいかないようならGolangのチュートリアルにあるaddressbook.protoをコンパイル
+してみてどこに問題があるか切り分けてください
+https://developers.google.com/protocol-buffers/docs/gotutorial
+
+1.protoc-27.5-win64.zip をインストールしてPATHを通す
+
+2.protocのgo用プラグインをインストールする
+go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
+
+3.n-air-appのproto以下をコピーする
+https://github.com/n-air-app/nicolive-comment-protobuf
+
+4.*.protoファイル全てのimport文の下に以下を追加する
+option go_package = ".;proto";
+
+5.protocでコンパイルする
+
+protoc --go_out=. dwango\nicolive\chat\data\*.proto
+protoc --go_out=. dwango\nicolive\chat\data\atoms\*.proto
+protoc --go_out=. dwango\nicolive\chat\service\edge\*.proto
+
+6.*.pb.goが目的のgoファイルです
+
+

@@ -395,8 +395,8 @@ func getModifier(attrmap map[string]interface{}) (mail []string, istranslucent b
  			}
 			mail = append(mail, fmt.Sprintf("#%02x%02x%02x", red, green, blue))
 		}
-		if _, ok := modMap["pos"].(string); ok {
-			mail = append(mail, modMap["pos"].(string))
+		if _, ok := modMap["position"].(string); ok {
+			mail = append(mail, modMap["position"].(string))
 		}
 		if _, ok := modMap["size"].(string); ok {
 			mail = append(mail, modMap["size"].(string))
@@ -440,6 +440,11 @@ func (hls *NicoHls) commentHandler(tag string, entry *pb.ChunkedMessage) (err er
 		}
 	case "simple_notification":
 		jsond, err = protojson.Marshal(entry.GetMessage().GetSimpleNotification())
+		if err != nil {
+			return
+		}
+	case "simple_notification_v2":
+		jsond, err = protojson.Marshal(entry.GetMessage().GetSimpleNotificationV2())
 		if err != nil {
 			return
 		}
@@ -615,6 +620,33 @@ func (hls *NicoHls) commentHandler(tag string, entry *pb.ChunkedMessage) (err er
 			} else {
 				content = "/info 10 " + string(jsond)
 				fmt.Printf("%s\n",content)
+			}
+		case "simple_notification_v2":
+			attrMap["premium"] = 3
+			if tt := entry.GetMessage().GetSimpleNotificationV2().GetType().String(); len(tt) > 0 {
+				if s := entry.GetMessage().GetSimpleNotificationV2().GetMessage(); len(s) > 0 {
+					if tt == "ICHIBA" {
+						content = "/info 10 " + s
+					} else if tt == "EMOTION" {
+						content = "/emotion " + s
+					} else if tt == "CRUISE" {
+						content = "/cruise \"" + s + "\""
+					} else if tt == "PROGRAM_EXTENDED" {
+						content = "/info 3 " + s	//3秒
+					} else if tt == "RANKING_IN" {
+						content = "/info 8 " + s	//8秒
+					} else if tt == "VISITED" {
+						content = "/info 5 " + s
+					} else if tt == "SUPPORTER_REGISTERED" {
+						content = "/info 5 " + s
+					} else if tt == "USER_LEVEL_UP" {
+						content = "/info 5 " + s
+					} else if tt == "USER_FOLLOW" {
+						content = "/info 5 " + s
+					} else {
+						content = "/info_v2 " + entry.GetMessage().GetSimpleNotificationV2().String()
+					}
+				}
 			}
 		case "gift":
 			attrMap["premium"] = 3
@@ -2690,6 +2722,7 @@ func (hls *NicoHls) startMain() {
 			case "serverTime":
 			case "schedule":
 			case "tagUpdated":
+			case "akashicMessageServer":	//2025/12/10～追加
 				// nop
 				//default:
 				//	fmt.Printf("%#v\n", res)
