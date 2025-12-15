@@ -1,4 +1,4 @@
-livedl (20250417.64-windows-amd64)
+livedl (20251215.65-windows-amd64)
 Usage:
 livedl [COMMAND] options... [--] FILE
 
@@ -111,6 +111,17 @@ FILE:
     https://twitcasting.tv/XXXXX
 
 ﻿更新履歴
+20251215.65
+- 機能修正
+  - コメントのmail属性に ue shita がついていないのを修正
+  - proto定義ファイルをv2025.1117.170000に更新
+  - *.pb.goファイルを更新
+  - protobuf-compile.txtをprotobuf-build.txtにリネーム
+  - proto定義ファイルをpb.goに変換する手順を修正
+  - proto定義ファイル変換用バッチ(mkproto_go.cmd)を作成
+  - 運営コメントにSimpleNotificationV2を追加
+  - websocket接続時にakashicMessageServerのエラーが出ないように修正
+
 20250417.64
 - 機能修正
   - 2025/04/17夕方からニコ生全ての放送に接続するとMasterfileが403エラーで接続を繰り返すので
